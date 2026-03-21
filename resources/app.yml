@@ -1,0 +1,15 @@
+resources:
+  apps:
+    mlops_e2e_dashboard:
+      name: "mlops-e2e-dashboard"
+      description: "MLOps E2E Pipeline Dashboard"
+      source_code_path: ../app
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: pipeline-job
+          job:
+            id: ${resources.jobs.mlops_e2e_pipeline.id}
+            permission: CAN_MANAGE_RUN

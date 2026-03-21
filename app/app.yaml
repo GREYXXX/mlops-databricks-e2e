@@ -1,0 +1,31 @@
+command:
+  - uvicorn
+  - backend.main:app
+  - --host
+  - 0.0.0.0
+  - --port
+  - 8000
+env:
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: DATABRICKS_WAREHOUSE_ID
+  - name: PIPELINE_JOB_NAME
+    value: "[dev john] [dev] MLOps E2E Pipeline"
+  - name: MLFLOW_EXPERIMENT_NAME
+    value: /Users/john@gmail.com/mlops_e2e_california_housing
+  - name: UC_MODEL_NAME
+    value: workspace.mlops_e2e.california_housing_model
+  - name: UC_CATALOG
+    value: workspace
+  - name: UC_SCHEMA
+    value: mlops_e2e
+  - name: NOTEBOOK_ROOT_PATH
+    value: /Users/john@gmail.com/mlops_e2e_california_housing/.bundle/mlops_e2e_example/dev/files/notebooks
+  - name: MLFLOW_REGISTRY_URI
+    value: databricks-uc
+  - name: MLFLOW_TRACKING_URI
+    value: databricks
+resources:
+  - name: sql-warehouse
+    sql_warehouse:
+      id: 77ed47464d3a24e5
+      permission: CAN_USE

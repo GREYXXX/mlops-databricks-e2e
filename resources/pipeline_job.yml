@@ -1,0 +1,77 @@
+resources:
+  jobs:
+    mlops_e2e_pipeline:
+      name: "[${bundle.target}] MLOps E2E Pipeline"
+      schedule:
+        quartz_cron_expression: "0 0 8 * * ?"
+        timezone_id: America/Los_Angeles
+      tasks:
+        - task_key: data_preparation
+          notebook_task:
+            notebook_path: ../notebooks/01_data_preparation.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          environment_key: ml_env
+
+        - task_key: feature_engineering
+          depends_on:
+            - task_key: data_preparation
+          notebook_task:
+            notebook_path: ../notebooks/02_feature_engineering.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          environment_key: ml_env
+
+        - task_key: model_training
+          depends_on:
+            - task_key: feature_engineering
+          notebook_task:
+            notebook_path: ../notebooks/03_model_training.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          environment_key: ml_env
+
+        - task_key: model_evaluation
+          depends_on:
+            - task_key: model_training
+          notebook_task:
+            notebook_path: ../notebooks/04_model_evaluation.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          environment_key: ml_env
+
+        - task_key: model_registration
+          depends_on:
+            - task_key: model_evaluation
+          notebook_task:
+            notebook_path: ../notebooks/05_model_registration.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              model_name: ${var.model_name}
+          environment_key: ml_env
+
+        - task_key: champion_management
+          depends_on:
+            - task_key: model_registration
+          notebook_task:
+            notebook_path: ../notebooks/06_champion_management.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              model_name: ${var.model_name}
+          environment_key: ml_env
+
+      environments:
+        - environment_key: ml_env
+          spec:
+            client: "4"
+            dependencies:
+              - lightgbm>=4.0.0
+              - optuna>=3.0.0
+              - optuna-integration[mlflow]
+              - ../dist/mlops_e2e-0.1.0-py3-none-any.whl

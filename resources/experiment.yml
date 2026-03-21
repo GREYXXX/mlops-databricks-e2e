@@ -1,0 +1,7 @@
+resources:
+  experiments:
+    mlops_e2e_experiment:
+      name: /Users/${workspace.current_user.userName}/mlops_e2e_california_housing
+      permissions:
+        - level: CAN_MANAGE
+          group_name: users
