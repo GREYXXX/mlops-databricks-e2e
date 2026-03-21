@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 
 def _get_widget_or_env(key: str, default: str) -> str:
@@ -41,21 +40,21 @@ FEATURES_TABLE_NAME = "california_housing_features"
 EXPERIMENT_NAME = "/mlops_e2e_california_housing"
 
 
-def get_catalog(override: Optional[str] = None) -> str:
+def get_catalog(override: str | None = None) -> str:
     """Get the Unity Catalog catalog name."""
     if override:
         return override
     return _get_widget_or_env("catalog", DEFAULT_CATALOG)
 
 
-def get_schema(override: Optional[str] = None) -> str:
+def get_schema(override: str | None = None) -> str:
     """Get the Unity Catalog schema name."""
     if override:
         return override
     return _get_widget_or_env("schema", DEFAULT_SCHEMA)
 
 
-def get_model_name(override: Optional[str] = None) -> str:
+def get_model_name(override: str | None = None) -> str:
     """Get the registered model name."""
     if override:
         return override

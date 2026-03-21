@@ -90,8 +90,7 @@ def get_comparison():
     elif not champion and challenger:
         promotion_status = "pending"
         promotion_reason = (
-            f"Challenger version {challenger.get('version')} awaiting "
-            "promotion evaluation."
+            f"Challenger version {challenger.get('version')} awaiting promotion evaluation."
         )
 
     return {

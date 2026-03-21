@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 import mlflow
 from databricks.sdk import WorkspaceClient
@@ -17,9 +17,10 @@ def _log_client_issue(operation: str, exc: BaseException, **context: Any) -> Non
     else:
         logger.warning("%s: %s", operation, exc)
 
+
 mlflow.set_registry_uri("databricks-uc")
 
-_ws_client: Optional[WorkspaceClient] = None
+_ws_client: WorkspaceClient | None = None
 
 
 def _get_ws_client() -> WorkspaceClient:
@@ -27,6 +28,7 @@ def _get_ws_client() -> WorkspaceClient:
     if _ws_client is None:
         _ws_client = WorkspaceClient()
     return _ws_client
+
 
 _EXPERIMENT_NAME_ENV = os.getenv("MLFLOW_EXPERIMENT_NAME", "")
 
@@ -66,11 +68,9 @@ def _resolve_experiment_name() -> str:
 
 
 EXPERIMENT_NAME: str = ""  # resolved lazily
-MODEL_NAME = os.getenv(
-    "UC_MODEL_NAME", "main.mlops_e2e.california_housing_model"
-)
+MODEL_NAME = os.getenv("UC_MODEL_NAME", "main.mlops_e2e.california_housing_model")
 
-_client: Optional[MlflowClient] = None
+_client: MlflowClient | None = None
 
 
 def _get_client() -> MlflowClient:
@@ -83,7 +83,7 @@ def _get_client() -> MlflowClient:
 def get_experiment_runs(
     experiment_name: str = "",
     max_results: int = 50,
-    order_by: Optional[str] = None,
+    order_by: str | None = None,
 ):
     if not experiment_name:
         global EXPERIMENT_NAME
@@ -107,25 +107,23 @@ def get_experiment_runs(
 
     results = []
     for run in runs:
-        results.append({
-            "run_id": run.info.run_id,
-            "run_name": run.info.run_name,
-            "status": run.info.status,
-            "start_time": run.info.start_time,
-            "end_time": run.info.end_time,
-            "duration_ms": (
-                (run.info.end_time - run.info.start_time)
-                if run.info.end_time and run.info.start_time
-                else None
-            ),
-            "params": dict(run.data.params),
-            "metrics": dict(run.data.metrics),
-            "tags": {
-                k: v
-                for k, v in run.data.tags.items()
-                if not k.startswith("mlflow.")
-            },
-        })
+        results.append(
+            {
+                "run_id": run.info.run_id,
+                "run_name": run.info.run_name,
+                "status": run.info.status,
+                "start_time": run.info.start_time,
+                "end_time": run.info.end_time,
+                "duration_ms": (
+                    (run.info.end_time - run.info.start_time)
+                    if run.info.end_time and run.info.start_time
+                    else None
+                ),
+                "params": dict(run.data.params),
+                "metrics": dict(run.data.metrics),
+                "tags": {k: v for k, v in run.data.tags.items() if not k.startswith("mlflow.")},
+            }
+        )
     return results
 
 
@@ -141,11 +139,13 @@ def get_run_details(run_id: str):
     try:
         artifact_list = client.list_artifacts(run_id)
         for artifact in artifact_list:
-            artifacts.append({
-                "path": artifact.path,
-                "is_dir": artifact.is_dir,
-                "file_size": artifact.file_size,
-            })
+            artifacts.append(
+                {
+                    "path": artifact.path,
+                    "is_dir": artifact.is_dir,
+                    "file_size": artifact.file_size,
+                }
+            )
     except Exception as e:
         _log_client_issue("list_artifacts", e, run_id=run_id)
 
@@ -162,24 +162,18 @@ def get_run_details(run_id: str):
         ),
         "params": dict(run.data.params),
         "metrics": dict(run.data.metrics),
-        "tags": {
-            k: v
-            for k, v in run.data.tags.items()
-            if not k.startswith("mlflow.")
-        },
+        "tags": {k: v for k, v in run.data.tags.items() if not k.startswith("mlflow.")},
         "artifacts": artifacts,
         "artifact_uri": run.info.artifact_uri,
     }
 
 
-def get_run_artifact(run_id: str, artifact_path: str) -> Optional[str]:
+def get_run_artifact(run_id: str, artifact_path: str) -> str | None:
     client = _get_client()
     try:
         return client.download_artifacts(run_id, artifact_path)
     except Exception as e:
-        _log_client_issue(
-            "download_artifacts", e, run_id=run_id, artifact_path=artifact_path
-        )
+        _log_client_issue("download_artifacts", e, run_id=run_id, artifact_path=artifact_path)
         return None
 
 
@@ -214,16 +208,18 @@ def get_model_versions(model_name: str = MODEL_NAME):
     results = []
     for v in versions:
         ver_str = str(v.version)
-        results.append({
-            "version": ver_str,
-            "name": v.model_name,
-            "creation_timestamp": v.created_at,
-            "last_updated_timestamp": v.updated_at,
-            "status": v.status.value if v.status else "READY",
-            "source": v.source or "",
-            "run_id": v.run_id or "",
-            "aliases": alias_map.get(ver_str, []),
-        })
+        results.append(
+            {
+                "version": ver_str,
+                "name": v.model_name,
+                "creation_timestamp": v.created_at,
+                "last_updated_timestamp": v.updated_at,
+                "status": v.status.value if v.status else "READY",
+                "source": v.source or "",
+                "run_id": v.run_id or "",
+                "aliases": alias_map.get(ver_str, []),
+            }
+        )
     return sorted(results, key=lambda x: int(x["version"]), reverse=True)
 
 
@@ -245,9 +241,7 @@ def get_model_by_alias(model_name: str = MODEL_NAME, alias: str = "Champion"):
             "run_details": run_details,
         }
     except Exception as e:
-        _log_client_issue(
-            "get_model_version_by_alias", e, model_name=model_name, alias=alias
-        )
+        _log_client_issue("get_model_version_by_alias", e, model_name=model_name, alias=alias)
         return None
 
 
@@ -259,9 +253,7 @@ def get_model_metrics(model_name: str = MODEL_NAME, version: str = ""):
             run = client.get_run(mv.run_id)
             return dict(run.data.metrics)
     except Exception as e:
-        _log_client_issue(
-            "get_model_metrics", e, model_name=model_name, version=version
-        )
+        _log_client_issue("get_model_metrics", e, model_name=model_name, version=version)
     return {}
 
 
@@ -302,17 +294,19 @@ def get_training_history(model_name: str = MODEL_NAME):
                     version=ver_str,
                 )
 
-        items.append({
-            "version": ver_str,
-            "aliases": aliases,
-            "run_id": v.run_id or "",
-            "run_name": run_name,
-            "creation_timestamp": v.created_at,
-            "training_start_time": run_start_time,
-            "training_end_time": run_end_time,
-            "metrics": run_metrics,
-            "params": run_params,
-        })
+        items.append(
+            {
+                "version": ver_str,
+                "aliases": aliases,
+                "run_id": v.run_id or "",
+                "run_name": run_name,
+                "creation_timestamp": v.created_at,
+                "training_start_time": run_start_time,
+                "training_end_time": run_end_time,
+                "metrics": run_metrics,
+                "params": run_params,
+            }
+        )
 
     return items
 
@@ -324,6 +318,7 @@ def _classify_version(aliases: list[str]) -> tuple[str, str]:
     role_timestamp is the archive timestamp string (or empty).
     """
     import re
+
     pat = re.compile(r"^(Champion|Challenger)-(\d{8}-\d{4,6})$", re.IGNORECASE)
     legacy_pat = re.compile(r"^Champion-(\d{4}-\d{2}-\d{2})$", re.IGNORECASE)
 
@@ -377,15 +372,17 @@ def get_version_history(
                     model_name=model_name,
                     version=ver_str,
                 )
-        all_items.append({
-            "version": ver_str,
-            "aliases": aliases,
-            "role": role,
-            "role_timestamp": role_ts,
-            "run_id": v.run_id,
-            "creation_timestamp": v.created_at,
-            "metrics": metrics,
-        })
+        all_items.append(
+            {
+                "version": ver_str,
+                "aliases": aliases,
+                "role": role,
+                "role_timestamp": role_ts,
+                "run_id": v.run_id,
+                "creation_timestamp": v.created_at,
+                "metrics": metrics,
+            }
+        )
 
     total = len(all_items)
     total_pages = max(1, (total + page_size - 1) // page_size)
@@ -409,7 +406,6 @@ def promote_to_champion(model_name: str = MODEL_NAME, version: str = ""):
     from the target) with timestamped aliases.  Uses the Databricks SDK
     (WorkspaceClient) for reliable auth in Databricks App environments.
     """
-    import re
     from datetime import datetime, timezone
 
     ws = _get_ws_client()
@@ -423,14 +419,12 @@ def promote_to_champion(model_name: str = MODEL_NAME, version: str = ""):
     print(f"[PROMOTE] target=v{version_num}, raw aliases={raw_aliases}", flush=True)
 
     champion_ver: int | None = None
-    champion_alias_name: str = ""  # actual alias name (may be lowercase)
     challenger_ver: int | None = None
     challenger_alias_name: str = ""
     target_other_aliases: list[str] = []  # all non-Champion aliases on target
     for a in model.aliases or []:
         if a.alias_name.lower() == "champion":
             champion_ver = a.version_num
-            champion_alias_name = a.alias_name
         elif a.alias_name.lower() == "challenger":
             challenger_ver = a.version_num
             challenger_alias_name = a.alias_name
@@ -438,21 +432,29 @@ def promote_to_champion(model_name: str = MODEL_NAME, version: str = ""):
         if a.version_num == version_num and a.alias_name.lower() not in ("champion", "challenger"):
             target_other_aliases.append(a.alias_name)
 
-    print(f"[PROMOTE] champion_ver={champion_ver} (type={type(champion_ver).__name__}), "
-          f"challenger_ver={challenger_ver}, target_other_aliases={target_other_aliases}", flush=True)
+    print(
+        f"[PROMOTE] champion_ver={champion_ver} (type={type(champion_ver).__name__}), "
+        f"challenger_ver={challenger_ver}, target_other_aliases={target_other_aliases}",
+        flush=True,
+    )
 
     # Archive current Champion (the one being dethroned)
     if champion_ver is not None and champion_ver != version_num:
         archive_alias = f"Champion-{now_str}"
-        print(f"[PROMOTE] Archiving current Champion v{champion_ver} -> '{archive_alias}'", flush=True)
+        print(
+            f"[PROMOTE] Archiving current Champion v{champion_ver} -> '{archive_alias}'", flush=True
+        )
         ws.registered_models.set_alias(
             full_name=model_name,
             alias=archive_alias,
             version_num=champion_ver,
         )
     else:
-        print(f"[PROMOTE] SKIP archive: champion_ver={champion_ver}, version_num={version_num}, "
-              f"equal={champion_ver == version_num}", flush=True)
+        print(
+            f"[PROMOTE] SKIP archive: champion_ver={champion_ver}, version_num={version_num}, "
+            f"equal={champion_ver == version_num}",
+            flush=True,
+        )
 
     # Archive current Challenger
     if challenger_ver is not None and challenger_ver != version_num:
@@ -462,22 +464,16 @@ def promote_to_champion(model_name: str = MODEL_NAME, version: str = ""):
             alias=f"Challenger-{now_str}",
             version_num=challenger_ver,
         )
-        ws.registered_models.delete_alias(
-            full_name=model_name, alias=challenger_alias_name
-        )
+        ws.registered_models.delete_alias(full_name=model_name, alias=challenger_alias_name)
 
     # Remove ALL other aliases from the target version before crowning
     for alias_name in target_other_aliases:
         print(f"[PROMOTE] Removing alias '{alias_name}' from target v{version_num}", flush=True)
-        ws.registered_models.delete_alias(
-            full_name=model_name, alias=alias_name
-        )
+        ws.registered_models.delete_alias(full_name=model_name, alias=alias_name)
 
     # Set Champion alias on the target version
     print(f"[PROMOTE] Setting Champion alias on v{version_num}", flush=True)
-    ws.registered_models.set_alias(
-        full_name=model_name, alias="Champion", version_num=version_num
-    )
+    ws.registered_models.set_alias(full_name=model_name, alias="Champion", version_num=version_num)
 
     # Verify final state
     model_after = ws.registered_models.get(full_name=model_name, include_aliases=True)
@@ -502,9 +498,7 @@ def delete_model_version(model_name: str = MODEL_NAME, version: str = ""):
         for a in model.aliases or []:
             if a.version_num == version_num:
                 try:
-                    ws.registered_models.delete_alias(
-                        full_name=model_name, alias=a.alias_name
-                    )
+                    ws.registered_models.delete_alias(full_name=model_name, alias=a.alias_name)
                 except Exception as e:
                     _log_client_issue(
                         "delete_alias before version delete",

@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import matplotlib
 import numpy as np
-import pytest
 
 matplotlib.use("Agg")
 
@@ -128,7 +127,9 @@ class TestEvaluateModel:
 
         # Create a mock model that returns predictions
         mock_model = MagicMock()
-        mock_model.predict.return_value = sample_test_data["y_test"] + np.random.normal(0, 0.1, len(sample_test_data["y_test"]))
+        mock_model.predict.return_value = sample_test_data["y_test"] + np.random.normal(
+            0, 0.1, len(sample_test_data["y_test"])
+        )
         mock_model.feature_importances_ = np.random.rand(len(sample_test_data["feature_names"]))
 
         with patch("mlops_e2e.evaluation.mlflow") as mock_mlflow:

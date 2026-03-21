@@ -21,15 +21,9 @@ def get_config():
     ws = jobs_service._get_client()
     host = str(ws.config.host).rstrip("/")
 
-    model_name = os.getenv(
-        "UC_MODEL_NAME", "main.mlops_e2e.california_housing_model"
-    )
+    model_name = os.getenv("UC_MODEL_NAME", "main.mlops_e2e.california_housing_model")
     parts = model_name.split(".")
-    model_url = (
-        f"{host}/explore/data/models/{'/'.join(parts)}"
-        if len(parts) == 3
-        else None
-    )
+    model_url = f"{host}/explore/data/models/{'/'.join(parts)}" if len(parts) == 3 else None
 
     experiment_id = None
     experiment_url = None
