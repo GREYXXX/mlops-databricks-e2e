@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, call, patch
 
 import mlflow.exceptions
 import numpy as np
-import pytest
 
 
 class TestGetChampionVersion:
@@ -34,7 +33,9 @@ class TestGetChampionVersion:
 
         with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
             mock_client = MagicMock()
-            mock_client.get_model_version_by_alias.side_effect = mlflow.exceptions.MlflowException("not found")
+            mock_client.get_model_version_by_alias.side_effect = mlflow.exceptions.MlflowException(
+                "not found"
+            )
             mock_mlflow.tracking.MlflowClient.return_value = mock_client
             mock_mlflow.exceptions = mlflow.exceptions
 
@@ -142,12 +143,8 @@ class TestPromoteChallenger:
         # Should set archive alias on former champion, then Champion on new version
         alias_calls = mock_client.set_registered_model_alias.call_args_list
         assert len(alias_calls) == 2
-        assert alias_calls[0] == call(
-            name="cat.sch.model", alias=expected_alias, version="3"
-        )
-        assert alias_calls[1] == call(
-            name="cat.sch.model", alias="Champion", version="5"
-        )
+        assert alias_calls[0] == call(name="cat.sch.model", alias=expected_alias, version="3")
+        assert alias_calls[1] == call(name="cat.sch.model", alias="Champion", version="5")
         assert result == expected_alias
 
     def test_handles_missing_challenger_alias_gracefully(self):
@@ -155,7 +152,9 @@ class TestPromoteChallenger:
 
         with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
             mock_client = MagicMock()
-            mock_client.delete_registered_model_alias.side_effect = mlflow.exceptions.MlflowException("not found")
+            mock_client.delete_registered_model_alias.side_effect = (
+                mlflow.exceptions.MlflowException("not found")
+            )
             mock_mlflow.tracking.MlflowClient.return_value = mock_client
             mock_mlflow.exceptions = mlflow.exceptions
 
@@ -237,7 +236,10 @@ class TestRunChampionManagement:
             mock_challenger_model = MagicMock()
             mock_challenger_model.predict.return_value = y_test + 0.1
 
-            mock_mlflow.lightgbm.load_model.side_effect = [mock_champion_model, mock_challenger_model]
+            mock_mlflow.lightgbm.load_model.side_effect = [
+                mock_champion_model,
+                mock_challenger_model,
+            ]
             mock_mlflow.start_run.return_value.__enter__ = MagicMock()
             mock_mlflow.start_run.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -283,7 +285,10 @@ class TestRunChampionManagement:
             mock_challenger_model = MagicMock()
             mock_challenger_model.predict.return_value = y_test + 0.5
 
-            mock_mlflow.lightgbm.load_model.side_effect = [mock_champion_model, mock_challenger_model]
+            mock_mlflow.lightgbm.load_model.side_effect = [
+                mock_champion_model,
+                mock_challenger_model,
+            ]
             mock_mlflow.start_run.return_value.__enter__ = MagicMock()
             mock_mlflow.start_run.return_value.__exit__ = MagicMock(return_value=False)
 

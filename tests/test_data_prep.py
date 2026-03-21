@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 
 class TestLoadCaliforniaHousing:
     """Tests for load_california_housing()."""
@@ -22,8 +20,15 @@ class TestLoadCaliforniaHousing:
 
         df = load_california_housing(spark)
         expected_cols = {
-            "MedInc", "HouseAge", "AveRooms", "AveBedrms",
-            "Population", "AveOccup", "Latitude", "Longitude", "MedHouseVal",
+            "MedInc",
+            "HouseAge",
+            "AveRooms",
+            "AveBedrms",
+            "Population",
+            "AveOccup",
+            "Latitude",
+            "Longitude",
+            "MedHouseVal",
         }
         assert set(df.columns) == expected_cols
 
@@ -54,7 +59,10 @@ class TestSaveRawTable:
         db_name = "test_save_raw"
         spark.sql(f"CREATE DATABASE IF NOT EXISTS {db_name}")
 
-        with patch("mlops_e2e.data_prep.get_full_table_name", return_value=f"{db_name}.california_housing_raw"):
+        with patch(
+            "mlops_e2e.data_prep.get_full_table_name",
+            return_value=f"{db_name}.california_housing_raw",
+        ):
             result = save_raw_table(spark, sample_housing_spark, "test_cat", "test_schema")
 
         assert result == f"{db_name}.california_housing_raw"
@@ -72,7 +80,10 @@ class TestSaveRawTable:
         db_name = "test_overwrite"
         spark.sql(f"CREATE DATABASE IF NOT EXISTS {db_name}")
 
-        with patch("mlops_e2e.data_prep.get_full_table_name", return_value=f"{db_name}.california_housing_raw"):
+        with patch(
+            "mlops_e2e.data_prep.get_full_table_name",
+            return_value=f"{db_name}.california_housing_raw",
+        ):
             save_raw_table(spark, sample_housing_spark, "c", "s")
             save_raw_table(spark, sample_housing_spark, "c", "s")
 

@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import tempfile
-from typing import Dict, List, Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -24,7 +23,7 @@ matplotlib.use("Agg")
 logger = logging.getLogger(__name__)
 
 
-def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     """Compute regression evaluation metrics.
 
     Args:
@@ -58,9 +57,9 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
 def generate_plots(
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    feature_importances: Optional[np.ndarray] = None,
-    feature_names: Optional[List[str]] = None,
-) -> Dict[str, "matplotlib.figure.Figure"]:
+    feature_importances: np.ndarray | None = None,
+    feature_names: list[str] | None = None,
+) -> dict[str, matplotlib.figure.Figure]:
     """Generate evaluation plots.
 
     Args:
@@ -72,7 +71,7 @@ def generate_plots(
     Returns:
         Dictionary mapping plot names to matplotlib Figure objects.
     """
-    plots: Dict[str, matplotlib.figure.Figure] = {}
+    plots: dict[str, matplotlib.figure.Figure] = {}
 
     # 1. Residual plot
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -124,7 +123,7 @@ def generate_plots(
     return plots
 
 
-def evaluate_model(run_id: str, test_data_path: Optional[str] = None) -> Dict[str, float]:
+def evaluate_model(run_id: str, test_data_path: str | None = None) -> dict[str, float]:
     """Load model from an MLflow run, score test set, and log metrics and plots.
 
     Args:

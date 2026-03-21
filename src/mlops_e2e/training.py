@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import tempfile
-from typing import TYPE_CHECKING, Callable, Tuple
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import lightgbm as lgb
 import mlflow
@@ -68,12 +69,16 @@ def create_optuna_objective(
 
 
 def _split_data(
-    pdf: "np.ndarray", target_col: str, feature_cols: list[str]
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    pdf: np.ndarray, target_col: str, feature_cols: list[str]
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Split pandas DataFrame into train/val/test (70/15/15)."""
     import pandas as pd
 
-    df = pd.DataFrame(pdf, columns=feature_cols + [target_col]) if not isinstance(pdf, pd.DataFrame) else pdf
+    df = (
+        pd.DataFrame(pdf, columns=feature_cols + [target_col])
+        if not isinstance(pdf, pd.DataFrame)
+        else pdf
+    )
     X = df[feature_cols].values
     y = df[target_col].values
 
@@ -81,13 +86,16 @@ def _split_data(
         X, y, test_size=0.15, random_state=42
     )
     X_train, X_val, y_train, y_val = train_test_split(
-        X_train_val, y_train_val, test_size=0.176, random_state=42  # 0.176 * 0.85 ≈ 0.15
+        X_train_val,
+        y_train_val,
+        test_size=0.176,
+        random_state=42,  # 0.176 * 0.85 ≈ 0.15
     )
     return X_train, X_val, X_test, y_train, y_val, y_test
 
 
 def train_with_tuning(
-    spark: "SparkSession",
+    spark: SparkSession,
     catalog: str,
     schema: str,
     experiment_name: str,
@@ -113,13 +121,9 @@ def train_with_tuning(
     target_col = "MedHouseVal"
     feature_cols = [c for c in df.columns if c != target_col]
 
-    X_train, X_val, X_test, y_train, y_val, y_test = _split_data(
-        df, target_col, feature_cols
-    )
+    X_train, X_val, X_test, y_train, y_val, y_test = _split_data(df, target_col, feature_cols)
 
-    logger.info(
-        "Data split: train=%d, val=%d, test=%d", len(X_train), len(X_val), len(X_test)
-    )
+    logger.info("Data split: train=%d, val=%d, test=%d", len(X_train), len(X_val), len(X_test))
 
     # Set MLflow experiment
     mlflow.set_experiment(experiment_name)

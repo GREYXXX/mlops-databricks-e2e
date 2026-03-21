@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="mlops_e2e",
@@ -22,6 +22,9 @@ setup(
             "pytest>=7.0.0",
             "pytest-cov>=4.0.0",
             "pyspark>=3.5.0",
+            "ruff>=0.8.0",
+            "fastapi>=0.104.0",
+            "httpx>=0.25.0",
         ],
     },
 )
