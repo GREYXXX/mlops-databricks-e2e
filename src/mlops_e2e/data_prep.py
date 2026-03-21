@@ -27,7 +27,9 @@ def load_california_housing(spark: SparkSession) -> DataFrame:
     """
     data = fetch_california_housing(as_frame=True)
     pdf: pd.DataFrame = data.frame  # type: ignore[union-attr]
-    logger.info("Loaded California Housing dataset: %d rows, %d columns", len(pdf), len(pdf.columns))
+    logger.info(
+        "Loaded California Housing dataset: %d rows, %d columns", len(pdf), len(pdf.columns)
+    )
     spark_df = spark.createDataFrame(pdf)
     return spark_df
 

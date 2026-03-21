@@ -41,13 +41,13 @@ def get_pipeline_status(job_name: str = JOB_NAME):
             task_info = {
                 "task_key": task.task_key,
                 "status": _lifecycle_to_str(state.life_cycle_state) if state else "UNKNOWN",
-                "result": _result_to_str(state.result_state) if state and state.result_state else None,
+                "result": _result_to_str(state.result_state)
+                if state and state.result_state
+                else None,
                 "start_time": task.start_time,
                 "end_time": task.end_time,
                 "duration_ms": (
-                    (task.end_time - task.start_time)
-                    if task.end_time and task.start_time
-                    else None
+                    (task.end_time - task.start_time) if task.end_time and task.start_time else None
                 ),
                 "attempt_number": task.attempt_number,
             }
@@ -60,7 +60,9 @@ def get_pipeline_status(job_name: str = JOB_NAME):
         "run_id": latest_run.run_id,
         "run_name": latest_run.run_name,
         "status": _lifecycle_to_str(run_state.life_cycle_state) if run_state else "UNKNOWN",
-        "result": _result_to_str(run_state.result_state) if run_state and run_state.result_state else None,
+        "result": _result_to_str(run_state.result_state)
+        if run_state and run_state.result_state
+        else None,
         "start_time": latest_run.start_time,
         "end_time": latest_run.end_time,
         "tasks": tasks,
@@ -95,19 +97,21 @@ def get_pipeline_history(job_name: str = JOB_NAME, limit: int = 10):
     results = []
     for run in runs:
         state = run.state
-        results.append({
-            "run_id": run.run_id,
-            "run_name": run.run_name,
-            "status": _lifecycle_to_str(state.life_cycle_state) if state else "UNKNOWN",
-            "result": _result_to_str(state.result_state) if state and state.result_state else None,
-            "start_time": run.start_time,
-            "end_time": run.end_time,
-            "duration_ms": (
-                (run.end_time - run.start_time)
-                if run.end_time and run.start_time
-                else None
-            ),
-        })
+        results.append(
+            {
+                "run_id": run.run_id,
+                "run_name": run.run_name,
+                "status": _lifecycle_to_str(state.life_cycle_state) if state else "UNKNOWN",
+                "result": _result_to_str(state.result_state)
+                if state and state.result_state
+                else None,
+                "start_time": run.start_time,
+                "end_time": run.end_time,
+                "duration_ms": (
+                    (run.end_time - run.start_time) if run.end_time and run.start_time else None
+                ),
+            }
+        )
     return results
 
 

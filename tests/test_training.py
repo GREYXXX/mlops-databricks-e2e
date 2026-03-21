@@ -90,7 +90,10 @@ class TestTrainWithTuning:
         df = df.withColumn("_feature_timestamp", F.current_timestamp())
         df.write.mode("overwrite").saveAsTable(f"{db_name}.california_housing_features")
 
-        with patch("mlops_e2e.training.get_full_table_name", return_value=f"{db_name}.california_housing_features"):
+        with patch(
+            "mlops_e2e.training.get_full_table_name",
+            return_value=f"{db_name}.california_housing_features",
+        ):
             run_id = train_with_tuning(
                 spark=spark,
                 catalog="c",
@@ -136,15 +139,15 @@ class TestSplitData:
 
         np.random.seed(42)
         n = 1000
-        pdf = pd.DataFrame({
-            "f1": np.random.randn(n),
-            "f2": np.random.randn(n),
-            "target": np.random.randn(n),
-        })
-
-        X_train, X_val, X_test, y_train, y_val, y_test = _split_data(
-            pdf, "target", ["f1", "f2"]
+        pdf = pd.DataFrame(
+            {
+                "f1": np.random.randn(n),
+                "f2": np.random.randn(n),
+                "target": np.random.randn(n),
+            }
         )
+
+        X_train, X_val, X_test, y_train, y_val, y_test = _split_data(pdf, "target", ["f1", "f2"])
 
         total = len(X_train) + len(X_val) + len(X_test)
         assert total == n

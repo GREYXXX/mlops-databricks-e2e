@@ -22,10 +22,22 @@ class TestAddDerivedFeatures:
     def test_rooms_per_household_formula(self, spark):
         from mlops_e2e.feature_eng import add_derived_features
 
-        df = spark.createDataFrame([
-            (5.0, 3.0, 2.0, 1.0, 100.0, 3.0, 34.0, -118.0, 2.0),
-        ], ["MedInc", "HouseAge", "AveRooms", "AveBedrms", "Population",
-            "AveOccup", "Latitude", "Longitude", "MedHouseVal"])
+        df = spark.createDataFrame(
+            [
+                (5.0, 3.0, 2.0, 1.0, 100.0, 3.0, 34.0, -118.0, 2.0),
+            ],
+            [
+                "MedInc",
+                "HouseAge",
+                "AveRooms",
+                "AveBedrms",
+                "Population",
+                "AveOccup",
+                "Latitude",
+                "Longitude",
+                "MedHouseVal",
+            ],
+        )
 
         result = add_derived_features(df).collect()[0]
         # rooms_per_household = AveRooms * AveOccup = 2.0 * 3.0 = 6.0
@@ -34,10 +46,22 @@ class TestAddDerivedFeatures:
     def test_bedrooms_ratio_formula(self, spark):
         from mlops_e2e.feature_eng import add_derived_features
 
-        df = spark.createDataFrame([
-            (5.0, 3.0, 4.0, 1.0, 100.0, 3.0, 34.0, -118.0, 2.0),
-        ], ["MedInc", "HouseAge", "AveRooms", "AveBedrms", "Population",
-            "AveOccup", "Latitude", "Longitude", "MedHouseVal"])
+        df = spark.createDataFrame(
+            [
+                (5.0, 3.0, 4.0, 1.0, 100.0, 3.0, 34.0, -118.0, 2.0),
+            ],
+            [
+                "MedInc",
+                "HouseAge",
+                "AveRooms",
+                "AveBedrms",
+                "Population",
+                "AveOccup",
+                "Latitude",
+                "Longitude",
+                "MedHouseVal",
+            ],
+        )
 
         result = add_derived_features(df).collect()[0]
         # bedrooms_ratio = AveBedrms / AveRooms = 1.0 / 4.0 = 0.25
@@ -46,10 +70,22 @@ class TestAddDerivedFeatures:
     def test_bedrooms_ratio_zero_rooms(self, spark):
         from mlops_e2e.feature_eng import add_derived_features
 
-        df = spark.createDataFrame([
-            (5.0, 3.0, 0.0, 1.0, 100.0, 3.0, 34.0, -118.0, 2.0),
-        ], ["MedInc", "HouseAge", "AveRooms", "AveBedrms", "Population",
-            "AveOccup", "Latitude", "Longitude", "MedHouseVal"])
+        df = spark.createDataFrame(
+            [
+                (5.0, 3.0, 0.0, 1.0, 100.0, 3.0, 34.0, -118.0, 2.0),
+            ],
+            [
+                "MedInc",
+                "HouseAge",
+                "AveRooms",
+                "AveBedrms",
+                "Population",
+                "AveOccup",
+                "Latitude",
+                "Longitude",
+                "MedHouseVal",
+            ],
+        )
 
         result = add_derived_features(df).collect()[0]
         assert result["bedrooms_ratio"] == 0.0
@@ -57,10 +93,22 @@ class TestAddDerivedFeatures:
     def test_population_per_household_formula(self, spark):
         from mlops_e2e.feature_eng import add_derived_features
 
-        df = spark.createDataFrame([
-            (5.0, 3.0, 4.0, 1.0, 300.0, 3.0, 34.0, -118.0, 2.0),
-        ], ["MedInc", "HouseAge", "AveRooms", "AveBedrms", "Population",
-            "AveOccup", "Latitude", "Longitude", "MedHouseVal"])
+        df = spark.createDataFrame(
+            [
+                (5.0, 3.0, 4.0, 1.0, 300.0, 3.0, 34.0, -118.0, 2.0),
+            ],
+            [
+                "MedInc",
+                "HouseAge",
+                "AveRooms",
+                "AveBedrms",
+                "Population",
+                "AveOccup",
+                "Latitude",
+                "Longitude",
+                "MedHouseVal",
+            ],
+        )
 
         result = add_derived_features(df).collect()[0]
         # population_per_household = Population / AveOccup = 300.0 / 3.0 = 100.0
@@ -124,7 +172,9 @@ class TestCreateFeatureTable:
         spark.sql(f"CREATE DATABASE IF NOT EXISTS {db_name}")
 
         # Write source table
-        sample_housing_spark.write.mode("overwrite").saveAsTable(f"{db_name}.california_housing_raw")
+        sample_housing_spark.write.mode("overwrite").saveAsTable(
+            f"{db_name}.california_housing_raw"
+        )
 
         with patch("mlops_e2e.feature_eng.get_full_table_name") as mock_name:
             mock_name.side_effect = lambda cat, sch, tbl: f"{db_name}.{tbl}"

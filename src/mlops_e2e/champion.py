@@ -210,16 +210,16 @@ def run_champion_management(
 
     if champion_version is None:
         # First model - auto-promote
-        logger.info("No existing Champion - auto-promoting Challenger version %s", challenger_version)
+        logger.info(
+            "No existing Champion - auto-promoting Challenger version %s", challenger_version
+        )
         promote_challenger(model_name, challenger_version)
         result["action"] = "auto_promoted"
         result["reason"] = "No existing Champion model"
     else:
         # Compare models
         result["champion_version"] = champion_version
-        comparison = compare_models(
-            champion_version, challenger_version, model_name, test_data
-        )
+        comparison = compare_models(champion_version, challenger_version, model_name, test_data)
         result["champion_rmse"] = str(comparison["champion_rmse"])
         result["challenger_rmse"] = str(comparison["challenger_rmse"])
 
@@ -234,7 +234,9 @@ def run_champion_management(
                 model_name, challenger_version, former_champion_version=champion_version
             )
             result["action"] = "promoted"
-            result["reason"] = f"Challenger RMSE ({comparison['challenger_rmse']:.4f}) < Champion RMSE ({comparison['champion_rmse']:.4f})"
+            result["reason"] = (
+                f"Challenger RMSE ({comparison['challenger_rmse']:.4f}) < Champion RMSE ({comparison['champion_rmse']:.4f})"
+            )
             if archive_alias:
                 result["archived_champion_alias"] = archive_alias
         else:
@@ -245,7 +247,9 @@ def run_champion_management(
             )
             challenger_alias = archive_challenger(model_name, challenger_version)
             result["action"] = "rejected"
-            result["reason"] = f"Champion RMSE ({comparison['champion_rmse']:.4f}) <= Challenger RMSE ({comparison['challenger_rmse']:.4f})"
+            result["reason"] = (
+                f"Champion RMSE ({comparison['champion_rmse']:.4f}) <= Challenger RMSE ({comparison['challenger_rmse']:.4f})"
+            )
             result["archived_challenger_alias"] = challenger_alias
 
     # Log comparison summary as artifact on the challenger's run

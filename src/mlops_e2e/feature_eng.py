@@ -39,7 +39,9 @@ def add_derived_features(df: DataFrame) -> DataFrame:
         F.when(F.col("AveRooms") != 0, F.col("AveBedrms") / F.col("AveRooms")).otherwise(0.0),
     )
     df = df.withColumn("population_per_household", F.col("Population") / F.col("AveOccup"))
-    logger.info("Added derived features: rooms_per_household, bedrooms_ratio, population_per_household")
+    logger.info(
+        "Added derived features: rooms_per_household, bedrooms_ratio, population_per_household"
+    )
     return df
 
 

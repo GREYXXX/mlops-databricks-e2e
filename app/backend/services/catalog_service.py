@@ -27,10 +27,7 @@ def get_table_info(table_name: str):
             "table_type": str(table.table_type),
             "created_at": table.created_at,
             "updated_at": table.updated_at,
-            "columns": [
-                {"name": c.name, "type": str(c.type_name)}
-                for c in (table.columns or [])
-            ],
+            "columns": [{"name": c.name, "type": str(c.type_name)} for c in (table.columns or [])],
         }
     except Exception:
         return None
