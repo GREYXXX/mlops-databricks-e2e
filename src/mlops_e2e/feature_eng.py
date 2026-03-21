@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import pyspark.sql.functions as F
 
@@ -45,7 +45,7 @@ def add_derived_features(df: DataFrame) -> DataFrame:
     return df
 
 
-def log_transform_skewed(df: DataFrame, columns: List[str]) -> DataFrame:
+def log_transform_skewed(df: DataFrame, columns: list[str]) -> DataFrame:
     """Apply log1p transformation to specified skewed columns.
 
     Args:

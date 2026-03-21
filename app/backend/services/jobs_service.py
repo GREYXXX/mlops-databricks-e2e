@@ -1,13 +1,11 @@
 import os
-from typing import Optional
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.jobs import RunLifeCycleState, RunResultState
 
-
 JOB_NAME = os.getenv("PIPELINE_JOB_NAME", "MLOps E2E Pipeline")
 
-_ws: Optional[WorkspaceClient] = None
+_ws: WorkspaceClient | None = None
 
 
 def _get_client() -> WorkspaceClient:
@@ -115,13 +113,13 @@ def get_pipeline_history(job_name: str = JOB_NAME, limit: int = 10):
     return results
 
 
-def _lifecycle_to_str(state: Optional[RunLifeCycleState]) -> str:
+def _lifecycle_to_str(state: RunLifeCycleState | None) -> str:
     if state is None:
         return "UNKNOWN"
     return state.value
 
 
-def _result_to_str(state: Optional[RunResultState]) -> str:
+def _result_to_str(state: RunResultState | None) -> str:
     if state is None:
         return "UNKNOWN"
     return state.value

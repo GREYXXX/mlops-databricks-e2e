@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import matplotlib
 import numpy as np
-import pytest
 
 matplotlib.use("Agg")
 

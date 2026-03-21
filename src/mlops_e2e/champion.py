@@ -7,7 +7,6 @@ import logging
 import os
 import tempfile
 from datetime import datetime, timezone
-from typing import Dict, Optional
 
 import mlflow
 import numpy as np
@@ -16,7 +15,7 @@ from sklearn.metrics import mean_squared_error
 logger = logging.getLogger(__name__)
 
 
-def get_champion_version(model_name: str) -> Optional[str]:
+def get_champion_version(model_name: str) -> str | None:
     """Get the current Champion model version.
 
     Args:
@@ -39,8 +38,8 @@ def compare_models(
     champion_version: str,
     challenger_version: str,
     model_name: str,
-    test_data: Dict[str, np.ndarray],
-) -> Dict[str, float]:
+    test_data: dict[str, np.ndarray],
+) -> dict[str, float]:
     """Compare Champion and Challenger models on the test set.
 
     Args:
@@ -87,8 +86,8 @@ def _make_timestamp_alias(prefix: str) -> str:
 def promote_challenger(
     model_name: str,
     challenger_version: str,
-    former_champion_version: Optional[str] = None,
-) -> Optional[str]:
+    former_champion_version: str | None = None,
+) -> str | None:
     """Promote the Challenger to Champion by moving aliases.
 
     If there is a former Champion, it receives a timestamped alias
@@ -103,7 +102,7 @@ def promote_challenger(
         The archive alias assigned to the former Champion, or None.
     """
     client = mlflow.tracking.MlflowClient()
-    archive_alias: Optional[str] = None
+    archive_alias: str | None = None
 
     # Archive former Champion with a timestamped alias for easy rollback
     if former_champion_version is not None:
@@ -173,7 +172,7 @@ def run_champion_management(
     model_name: str,
     catalog: str,
     schema: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Full champion management pipeline.
 
     Compares the Challenger to the current Champion (if one exists) and
@@ -206,7 +205,7 @@ def run_champion_management(
 
     # Check for existing Champion
     champion_version = get_champion_version(model_name)
-    result: Dict[str, str] = {"challenger_version": challenger_version}
+    result: dict[str, str] = {"challenger_version": challenger_version}
 
     if champion_version is None:
         # First model - auto-promote
@@ -234,9 +233,9 @@ def run_champion_management(
                 model_name, challenger_version, former_champion_version=champion_version
             )
             result["action"] = "promoted"
-            result["reason"] = (
-                f"Challenger RMSE ({comparison['challenger_rmse']:.4f}) < Champion RMSE ({comparison['champion_rmse']:.4f})"
-            )
+            ch_rmse = comparison["challenger_rmse"]
+            champ_rmse = comparison["champion_rmse"]
+            result["reason"] = f"Challenger RMSE ({ch_rmse:.4f}) < Champion RMSE ({champ_rmse:.4f})"
             if archive_alias:
                 result["archived_champion_alias"] = archive_alias
         else:
@@ -247,9 +246,9 @@ def run_champion_management(
             )
             challenger_alias = archive_challenger(model_name, challenger_version)
             result["action"] = "rejected"
-            result["reason"] = (
-                f"Champion RMSE ({comparison['champion_rmse']:.4f}) <= Challenger RMSE ({comparison['challenger_rmse']:.4f})"
-            )
+            champ_r = comparison["champion_rmse"]
+            chal_r = comparison["challenger_rmse"]
+            result["reason"] = f"Champion RMSE ({champ_r:.4f}) <= Challenger RMSE ({chal_r:.4f})"
             result["archived_challenger_alias"] = challenger_alias
 
     # Log comparison summary as artifact on the challenger's run

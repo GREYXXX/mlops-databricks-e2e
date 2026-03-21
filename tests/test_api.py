@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 def client():
     """Create a TestClient for the FastAPI app."""
     # Reset module-level singletons before each test
-    import app.backend.services.mlflow_service as ms
     import app.backend.services.jobs_service as js
+    import app.backend.services.mlflow_service as ms
 
     ms._client = None
     js._ws = None

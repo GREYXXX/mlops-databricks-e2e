@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 class TestRegisterModelToUC:
     """Tests for register_model_to_uc()."""

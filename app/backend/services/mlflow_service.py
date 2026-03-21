@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 import mlflow
 from databricks.sdk import WorkspaceClient
@@ -20,7 +20,7 @@ def _log_client_issue(operation: str, exc: BaseException, **context: Any) -> Non
 
 mlflow.set_registry_uri("databricks-uc")
 
-_ws_client: Optional[WorkspaceClient] = None
+_ws_client: WorkspaceClient | None = None
 
 
 def _get_ws_client() -> WorkspaceClient:
@@ -70,7 +70,7 @@ def _resolve_experiment_name() -> str:
 EXPERIMENT_NAME: str = ""  # resolved lazily
 MODEL_NAME = os.getenv("UC_MODEL_NAME", "main.mlops_e2e.california_housing_model")
 
-_client: Optional[MlflowClient] = None
+_client: MlflowClient | None = None
 
 
 def _get_client() -> MlflowClient:
@@ -83,7 +83,7 @@ def _get_client() -> MlflowClient:
 def get_experiment_runs(
     experiment_name: str = "",
     max_results: int = 50,
-    order_by: Optional[str] = None,
+    order_by: str | None = None,
 ):
     if not experiment_name:
         global EXPERIMENT_NAME
@@ -168,7 +168,7 @@ def get_run_details(run_id: str):
     }
 
 
-def get_run_artifact(run_id: str, artifact_path: str) -> Optional[str]:
+def get_run_artifact(run_id: str, artifact_path: str) -> str | None:
     client = _get_client()
     try:
         return client.download_artifacts(run_id, artifact_path)
@@ -406,7 +406,6 @@ def promote_to_champion(model_name: str = MODEL_NAME, version: str = ""):
     from the target) with timestamped aliases.  Uses the Databricks SDK
     (WorkspaceClient) for reliable auth in Databricks App environments.
     """
-    import re
     from datetime import datetime, timezone
 
     ws = _get_ws_client()
@@ -420,14 +419,12 @@ def promote_to_champion(model_name: str = MODEL_NAME, version: str = ""):
     print(f"[PROMOTE] target=v{version_num}, raw aliases={raw_aliases}", flush=True)
 
     champion_ver: int | None = None
-    champion_alias_name: str = ""  # actual alias name (may be lowercase)
     challenger_ver: int | None = None
     challenger_alias_name: str = ""
     target_other_aliases: list[str] = []  # all non-Champion aliases on target
     for a in model.aliases or []:
         if a.alias_name.lower() == "champion":
             champion_ver = a.version_num
-            champion_alias_name = a.alias_name
         elif a.alias_name.lower() == "challenger":
             challenger_ver = a.version_num
             challenger_alias_name = a.alias_name

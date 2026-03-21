@@ -1,13 +1,11 @@
 import os
-from typing import Optional
 
 from databricks.sdk import WorkspaceClient
-
 
 CATALOG = os.getenv("UC_CATALOG", "main")
 SCHEMA = os.getenv("UC_SCHEMA", "mlops_e2e")
 
-_ws: Optional[WorkspaceClient] = None
+_ws: WorkspaceClient | None = None
 
 
 def _get_client() -> WorkspaceClient:

@@ -1,22 +1,19 @@
-import os
-from pathlib import Path
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
-# Load .env from repo root (local dev only; ignored in production where env vars are injected)
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
-
-from .routes import pipeline, experiments, models, comparison, config
+from .routes import comparison, config, experiments, models, pipeline
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Repo root .env (local dev); production injects env vars instead
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     yield
     # Shutdown
 

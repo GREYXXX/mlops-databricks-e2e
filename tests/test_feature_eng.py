@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 import numpy as np
 import pyspark.sql.functions as F
-import pytest
 
 
 class TestAddDerivedFeatures:

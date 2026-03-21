@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, call, patch
 
 import mlflow.exceptions
 import numpy as np
-import pytest
 
 
 class TestGetChampionVersion:

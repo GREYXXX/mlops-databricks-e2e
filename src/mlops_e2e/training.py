@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import tempfile
-from typing import TYPE_CHECKING, Callable, Tuple
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import lightgbm as lgb
 import mlflow
@@ -68,8 +69,8 @@ def create_optuna_objective(
 
 
 def _split_data(
-    pdf: "np.ndarray", target_col: str, feature_cols: list[str]
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    pdf: np.ndarray, target_col: str, feature_cols: list[str]
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Split pandas DataFrame into train/val/test (70/15/15)."""
     import pandas as pd
 
@@ -94,7 +95,7 @@ def _split_data(
 
 
 def train_with_tuning(
-    spark: "SparkSession",
+    spark: SparkSession,
     catalog: str,
     schema: str,
     experiment_name: str,

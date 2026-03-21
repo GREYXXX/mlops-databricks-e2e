@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
-import pytest
 
 
 class TestCreateOptunaObjective:
@@ -81,9 +80,9 @@ class TestTrainWithTuning:
         spark.sql(f"CREATE DATABASE {db_name}")
 
         # Create the feature table (with derived + log-transformed columns)
-        from mlops_e2e.feature_eng import add_derived_features, log_transform_skewed
-
         import pyspark.sql.functions as F
+
+        from mlops_e2e.feature_eng import add_derived_features, log_transform_skewed
 
         df = add_derived_features(sample_housing_spark)
         df = log_transform_skewed(df, ["Population", "AveRooms", "AveBedrms"])

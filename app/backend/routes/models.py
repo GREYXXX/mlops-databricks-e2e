@@ -41,7 +41,7 @@ def promote_version(version: str):
         return mlflow_service.promote_to_champion(version=version)
     except Exception as e:
         logger.exception("Failed to promote version %s", version)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/versions/{version}")
@@ -50,4 +50,4 @@ def delete_version(version: str):
         return mlflow_service.delete_model_version(version=version)
     except Exception as e:
         logger.exception("Failed to delete version %s", version)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
