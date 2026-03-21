@@ -7,15 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .routes import comparison, config, experiments, models, pipeline
+# Load .env before importing routes: mlflow_service reads UC_MODEL_NAME etc. at import time.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
+from .routes import comparison, config, experiments, models, pipeline  # noqa: E402
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Repo root .env (local dev); production injects env vars instead
-    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     yield
-    # Shutdown
 
 
 app = FastAPI(
