@@ -13,7 +13,7 @@ class TestCreateOptunaObjective:
     """Tests for create_optuna_objective()."""
 
     def test_returns_callable(self):
-        from mlops_e2e.training import create_optuna_objective
+        from mlops_e2e.housing.training import create_optuna_objective
 
         X_train = np.random.randn(100, 5)
         y_train = np.random.randn(100)
@@ -26,7 +26,7 @@ class TestCreateOptunaObjective:
     def test_objective_returns_float(self):
         import optuna
 
-        from mlops_e2e.training import create_optuna_objective
+        from mlops_e2e.housing.training import create_optuna_objective
 
         np.random.seed(42)
         X_train = np.random.randn(100, 5)
@@ -47,7 +47,7 @@ class TestCreateOptunaObjective:
         """Verify Optuna can find params that produce lower RMSE (over a few trials)."""
         import optuna
 
-        from mlops_e2e.training import create_optuna_objective
+        from mlops_e2e.housing.training import create_optuna_objective
 
         np.random.seed(42)
         n = 500
@@ -67,7 +67,7 @@ class TestTrainWithTuning:
     """Tests for train_with_tuning()."""
 
     def test_returns_run_id(self, spark, sample_housing_spark):
-        from mlops_e2e.training import train_with_tuning
+        from mlops_e2e.housing.training import train_with_tuning
 
         db_name = "test_training"
 
@@ -82,7 +82,7 @@ class TestTrainWithTuning:
         # Create the feature table (with derived + log-transformed columns)
         import pyspark.sql.functions as F
 
-        from mlops_e2e.feature_eng import add_derived_features, log_transform_skewed
+        from mlops_e2e.housing.feature_eng import add_derived_features, log_transform_skewed
 
         df = add_derived_features(sample_housing_spark)
         df = log_transform_skewed(df, ["Population", "AveRooms", "AveBedrms"])
@@ -90,7 +90,7 @@ class TestTrainWithTuning:
         df.write.mode("overwrite").saveAsTable(f"{db_name}.california_housing_features")
 
         with patch(
-            "mlops_e2e.training.get_full_table_name",
+            "mlops_e2e.housing.training.get_full_table_name",
             return_value=f"{db_name}.california_housing_features",
         ):
             run_id = train_with_tuning(
@@ -134,7 +134,7 @@ class TestSplitData:
     def test_split_ratios(self):
         import pandas as pd
 
-        from mlops_e2e.training import _split_data
+        from mlops_e2e.housing.training import _split_data
 
         np.random.seed(42)
         n = 1000

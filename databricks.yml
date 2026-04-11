@@ -9,8 +9,11 @@ variables:
     description: Unity Catalog schema name
     default: mlops_e2e
   model_name:
-    description: Registered model name
+    description: Registered model name (California Housing regression)
     default: california_housing_model
+  ensemble_model_name:
+    description: Registered model name (20 Newsgroups ensemble classifier)
+    default: newsgroups_ensemble_model
   warehouse_id:
     description: SQL warehouse ID for app queries
 
@@ -40,16 +43,19 @@ targets:
       catalog: workspace
       schema: mlops_e2e
       warehouse_id: "77ed47464d3a24e5"
+      ensemble_model_name: newsgroups_ensemble_model
 
   staging:
     variables:
       catalog: staging_catalog
       schema: mlops_e2e
+      ensemble_model_name: newsgroups_ensemble_model
 
   prod:
     mode: production
     variables:
       catalog: prod_catalog
       schema: mlops_e2e
+      ensemble_model_name: newsgroups_ensemble_model
     run_as:
       service_principal_name: mlops-e2e-sp

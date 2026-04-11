@@ -52,7 +52,7 @@ export const STAGE_CODE: Record<string, StageCodeEntry> = {
     key: "data_preparation",
     label: "Data Preparation",
     description: "Load the California Housing dataset and persist as a Delta table in Unity Catalog.",
-    sourceFile: "src/mlops_e2e/data_prep.py",
+    sourceFile: "src/mlops_e2e/housing/data_prep.py",
     notebookFile: "notebooks/01_data_preparation.py",
     sourceCode: `"""Data preparation: load California Housing dataset and write to Delta table."""
 
@@ -137,7 +137,7 @@ spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema}")
 
 # COMMAND ----------
 
-from mlops_e2e.data_prep import load_california_housing, save_raw_table
+from mlops_e2e.housing.data_prep import load_california_housing, save_raw_table
 
 # COMMAND ----------
 
@@ -157,8 +157,8 @@ print(f"Saved raw data to: {table_name}")
 row_count = spark.table(table_name).count()
 print(f"Table {table_name} has {row_count} rows")`,
     importedFunctions: [
-      { name: "load_california_housing", module: "mlops_e2e.data_prep" },
-      { name: "save_raw_table", module: "mlops_e2e.data_prep" },
+      { name: "load_california_housing", module: "mlops_e2e.housing.data_prep" },
+      { name: "save_raw_table", module: "mlops_e2e.housing.data_prep" },
     ],
   },
 
@@ -166,7 +166,7 @@ print(f"Table {table_name} has {row_count} rows")`,
     key: "feature_engineering",
     label: "Feature Engineering",
     description: "Transform raw features into a training-ready feature table with derived ratios and log transforms.",
-    sourceFile: "src/mlops_e2e/feature_eng.py",
+    sourceFile: "src/mlops_e2e/housing/feature_eng.py",
     notebookFile: "notebooks/02_feature_engineering.py",
     sourceCode: `"""Feature engineering: derived features, log transforms, and feature table creation."""
 
@@ -283,7 +283,7 @@ print(f"Using catalog={catalog}, schema={schema}")
 
 # COMMAND ----------
 
-from mlops_e2e.feature_eng import create_feature_table
+from mlops_e2e.housing.feature_eng import create_feature_table
 
 # COMMAND ----------
 
@@ -299,7 +299,7 @@ print(f"Feature table has {features_df.count()} rows and {len(features_df.column
 print(f"Columns: {features_df.columns}")
 display(features_df.limit(10))`,
     importedFunctions: [
-      { name: "create_feature_table", module: "mlops_e2e.feature_eng" },
+      { name: "create_feature_table", module: "mlops_e2e.housing.feature_eng" },
     ],
   },
 
@@ -307,7 +307,7 @@ display(features_df.limit(10))`,
     key: "model_training",
     label: "Model Training",
     description: "Train a LightGBM model with Optuna hyperparameter tuning, logging everything to MLflow.",
-    sourceFile: "src/mlops_e2e/training.py",
+    sourceFile: "src/mlops_e2e/housing/training.py",
     notebookFile: "notebooks/03_model_training.py",
     sourceCode: `"""Model training with LightGBM and Optuna hyperparameter tuning."""
 
@@ -518,7 +518,7 @@ print(f"Using catalog={catalog}, schema={schema}")
 
 # COMMAND ----------
 
-from mlops_e2e.training import train_with_tuning
+from mlops_e2e.housing.training import train_with_tuning
 
 # COMMAND ----------
 
@@ -543,7 +543,7 @@ print(f"Best run ID: {best_run_id}")
 dbutils.jobs.taskValues.set(key="best_run_id", value=best_run_id)
 print(f"Set task value best_run_id={best_run_id}")`,
     importedFunctions: [
-      { name: "train_with_tuning", module: "mlops_e2e.training" },
+      { name: "train_with_tuning", module: "mlops_e2e.housing.training" },
     ],
   },
 
@@ -551,7 +551,7 @@ print(f"Set task value best_run_id={best_run_id}")`,
     key: "model_evaluation",
     label: "Model Evaluation",
     description: "Compute evaluation metrics and generate comparison artifacts for the best model.",
-    sourceFile: "src/mlops_e2e/evaluation.py",
+    sourceFile: "src/mlops_e2e/housing/evaluation.py",
     notebookFile: "notebooks/04_model_evaluation.py",
     sourceCode: `"""Model evaluation: metrics computation and plot generation."""
 
@@ -771,7 +771,7 @@ print(f"Evaluating model from run: {best_run_id}")
 
 # COMMAND ----------
 
-from mlops_e2e.evaluation import evaluate_model
+from mlops_e2e.housing.evaluation import evaluate_model
 
 # COMMAND ----------
 
@@ -786,7 +786,7 @@ for name, value in metrics.items():
 # Pass best_run_id to downstream stages
 dbutils.jobs.taskValues.set(key="best_run_id", value=best_run_id)`,
     importedFunctions: [
-      { name: "evaluate_model", module: "mlops_e2e.evaluation" },
+      { name: "evaluate_model", module: "mlops_e2e.housing.evaluation" },
     ],
   },
 
@@ -794,7 +794,7 @@ dbutils.jobs.taskValues.set(key="best_run_id", value=best_run_id)`,
     key: "model_registration",
     label: "Model Registration",
     description: "Register the best model to Unity Catalog and assign the \"Challenger\" alias.",
-    sourceFile: "src/mlops_e2e/registration.py",
+    sourceFile: "src/mlops_e2e/housing/registration.py",
     notebookFile: "notebooks/05_model_registration.py",
     sourceCode: `"""Model registration to Unity Catalog."""
 
@@ -875,7 +875,7 @@ print(f"Registering model from run: {best_run_id}")
 
 # COMMAND ----------
 
-from mlops_e2e.registration import register_model_to_uc, set_model_alias
+from mlops_e2e.housing.registration import register_model_to_uc, set_model_alias
 
 # COMMAND ----------
 
@@ -895,8 +895,8 @@ print(f"Set alias 'Challenger' on version {version}")
 dbutils.jobs.taskValues.set(key="model_version", value=version)
 dbutils.jobs.taskValues.set(key="best_run_id", value=best_run_id)`,
     importedFunctions: [
-      { name: "register_model_to_uc", module: "mlops_e2e.registration" },
-      { name: "set_model_alias", module: "mlops_e2e.registration" },
+      { name: "register_model_to_uc", module: "mlops_e2e.housing.registration" },
+      { name: "set_model_alias", module: "mlops_e2e.housing.registration" },
     ],
   },
 
@@ -904,7 +904,7 @@ dbutils.jobs.taskValues.set(key="best_run_id", value=best_run_id)`,
     key: "champion_management",
     label: "Champion Management",
     description: "Compare the Challenger model against the current Champion and promote if better.",
-    sourceFile: "src/mlops_e2e/champion.py",
+    sourceFile: "src/mlops_e2e/housing/champion.py",
     notebookFile: "notebooks/06_champion_management.py",
     sourceCode: `"""Champion/challenger model comparison and promotion logic."""
 
@@ -1120,7 +1120,7 @@ print(f"Managing champion for: {full_model_name}")
 
 # COMMAND ----------
 
-from mlops_e2e.champion import run_champion_management
+from mlops_e2e.housing.champion import run_champion_management
 
 # COMMAND ----------
 
@@ -1139,7 +1139,7 @@ print(f"Challenger version: {result['challenger_version']}")
 if "champion_version" in result:
     print(f"Champion version: {result['champion_version']}")`,
     importedFunctions: [
-      { name: "run_champion_management", module: "mlops_e2e.champion" },
+      { name: "run_champion_management", module: "mlops_e2e.housing.champion" },
     ],
   },
 };

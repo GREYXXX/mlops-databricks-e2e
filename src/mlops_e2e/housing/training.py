@@ -15,7 +15,8 @@ from optuna.integration.mlflow import MLflowCallback
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
-from mlops_e2e.config import FEATURES_TABLE_NAME, get_full_table_name
+from mlops_e2e.config import get_full_table_name
+from mlops_e2e.housing.config import FEATURES_TABLE_NAME
 
 if TYPE_CHECKING:
     from pyspark.sql import SparkSession
@@ -125,13 +126,9 @@ def train_with_tuning(
 
     logger.info("Data split: train=%d, val=%d, test=%d", len(X_train), len(X_val), len(X_test))
 
-    # Set MLflow experiment
     mlflow.set_experiment(experiment_name)
-
-    # Enable LightGBM autologging
     mlflow.lightgbm.autolog(log_models=False)
 
-    # Run Optuna study inside a parent MLflow run
     with mlflow.start_run(run_name="optuna_tuning") as parent_run:
         mlflow.log_param("n_trials", n_trials)
         mlflow.log_param("feature_table", feature_table)
@@ -151,13 +148,11 @@ def train_with_tuning(
         objective = create_optuna_objective(X_train, y_train, X_val, y_val)
         study.optimize(objective, n_trials=n_trials, callbacks=[mlflow_callback])
 
-        # Log best trial info to parent run
         best_trial = study.best_trial
         mlflow.log_metric("best_val_rmse", best_trial.value)
         for key, value in best_trial.params.items():
             mlflow.log_param(f"best_{key}", value)
 
-        # Train final model with best params and log it
         logger.info("Training final model with best params: %s", best_trial.params)
         best_model = lgb.LGBMRegressor(**best_trial.params, verbose=-1, random_state=42)
         best_model.fit(
@@ -167,14 +162,12 @@ def train_with_tuning(
             callbacks=[lgb.early_stopping(50, verbose=False)],
         )
 
-        # Log the final model
         mlflow.lightgbm.log_model(
             best_model,
             name="model",
             input_example=X_train[:5],
         )
 
-        # Save test data for evaluation stage
         test_data_file = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
         test_data_path = test_data_file.name
         test_data_file.close()

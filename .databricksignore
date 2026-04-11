@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+/dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MLflow local artifacts (from tests)
+mlflow.db
+mlruns/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Node
+app/frontend/node_modules/
+# Note: app/frontend/dist/ is included via sync.include in databricks.yml
+
+# Databricks
+.databricks/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+*.local.json
+
+# Claude
+.claude/
+
+# Screenshots
+screenshots/

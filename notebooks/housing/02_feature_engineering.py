@@ -22,13 +22,11 @@ from mlops_e2e.housing.feature_eng import create_feature_table
 
 # COMMAND ----------
 
-# Run the full feature engineering pipeline
 feature_table = create_feature_table(spark, catalog, schema)
 print(f"Feature table created: {feature_table}")
 
 # COMMAND ----------
 
-# Verify the feature table
 features_df = spark.table(feature_table)
 print(f"Feature table has {features_df.count()} rows and {len(features_df.columns)} columns")
 print(f"Columns: {features_df.columns}")

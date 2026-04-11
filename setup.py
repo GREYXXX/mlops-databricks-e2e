@@ -2,12 +2,13 @@ from setuptools import find_packages, setup
 
 setup(
     name="mlops_e2e",
-    version="0.1.0",
-    description="MLOps E2E Example - California Housing Pipeline",
+    version="0.2.0",
+    description="MLOps E2E — California Housing regression + 20 Newsgroups ensemble classifier",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     python_requires=">=3.10",
     install_requires=[
+        # Housing regression pipeline
         "lightgbm>=4.0.0",
         "optuna>=3.0.0",
         "optuna-integration[mlflow]>=3.0.0",
@@ -16,6 +17,10 @@ setup(
         "pandas>=2.0.0",
         "numpy>=1.24.0",
         "matplotlib>=3.7.0",
+        # Newsgroups ensemble pipeline
+        "gensim>=4.3.0",
+        "torch>=2.1.0",
+        "pytorch-lightning>=2.1.0",
     ],
     extras_require={
         "dev": [

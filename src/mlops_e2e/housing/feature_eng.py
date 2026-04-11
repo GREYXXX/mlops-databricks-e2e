@@ -7,11 +7,8 @@ from typing import TYPE_CHECKING
 
 import pyspark.sql.functions as F
 
-from mlops_e2e.config import (
-    FEATURES_TABLE_NAME,
-    RAW_TABLE_NAME,
-    get_full_table_name,
-)
+from mlops_e2e.config import get_full_table_name
+from mlops_e2e.housing.config import FEATURES_TABLE_NAME, RAW_TABLE_NAME
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame, SparkSession
@@ -78,17 +75,13 @@ def create_feature_table(spark: SparkSession, catalog: str, schema: str) -> str:
     logger.info("Reading raw data from %s", raw_table)
     df = spark.table(raw_table)
 
-    # Add derived features
     df = add_derived_features(df)
 
-    # Log-transform skewed columns
     skewed_columns = ["Population", "AveRooms", "AveBedrms"]
     df = log_transform_skewed(df, skewed_columns)
 
-    # Add lineage timestamp
     df = df.withColumn("_feature_timestamp", F.current_timestamp())
 
-    # Write feature table
     logger.info("Writing feature table to %s", feature_table)
     df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(feature_table)
 

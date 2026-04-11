@@ -25,7 +25,6 @@ from mlops_e2e.housing.champion import run_champion_management
 
 # COMMAND ----------
 
-# Run the champion management pipeline
 result = run_champion_management(
     model_name=full_model_name,
     catalog=catalog,
