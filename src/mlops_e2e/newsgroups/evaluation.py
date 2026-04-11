@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import tempfile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import mlflow
 import numpy as np
@@ -21,6 +21,33 @@ if TYPE_CHECKING:
     from pyspark.sql import SparkSession
 
 logger = logging.getLogger(__name__)
+
+
+def _predict_all_dict(ensemble: mlflow.pyfunc.PyFuncModel, texts: list[str]) -> dict[str, Any]:
+    """Return sub-model and ensemble probabilities as a plain dict.
+
+    MLflow may not forward ``params`` to the underlying ``PythonModel`` in all
+    environments, or may coerce dict outputs—then ``predict(..., return_mode='all')``
+    comes back as an ndarray (labels only) and ``result['lr_proba']`` raises
+    IndexError. Unwrapping calls ``PythonModel.predict`` directly with ``params``.
+    """
+    params = {"return_mode": "all"}
+    out = ensemble.predict(texts, params=params)
+    if isinstance(out, dict) and "lr_proba" in out:
+        return out
+
+    if hasattr(out, "columns") and "lr_proba" in getattr(out, "columns", []):
+        row = out.iloc[0]
+        return {k: row[k] for k in ("lr_proba", "rf_proba", "cnn_proba", "ensemble_proba")}
+
+    py = ensemble.unwrap_python_model()
+    # load_context already ran at load time; predict does not read ``context``.
+    direct = py.predict(None, texts, params)
+    if not isinstance(direct, dict):
+        raise TypeError(
+            f"Expected dict from ensemble all-mode predict, got {type(direct).__name__}"
+        )
+    return direct
 
 
 def evaluate_ensemble(
@@ -62,7 +89,7 @@ def evaluate_ensemble(
     ensemble = mlflow.pyfunc.load_model(model_uri)
 
     logger.info("Running inference on %d test samples…", len(test_texts))
-    result = ensemble.predict(test_texts, params={"return_mode": "all"})
+    result = _predict_all_dict(ensemble, test_texts)
 
     scalar_metrics: dict[str, float] = {}
 
