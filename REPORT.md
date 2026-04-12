@@ -1,6 +1,6 @@
 # MLOps on Databricks — End-to-End Repository Report
 
-> Generated: 2026-04-11  
+> Last updated: 2026-04-11
 > Purpose: Deep-dive reference for understanding how enterprise MLOps works on Databricks, aligned with the **Databricks Certified Machine Learning Professional** exam objectives.
 
 ---
@@ -83,23 +83,26 @@ mlops-databricks-e2e/
 │       └── 06_champion_management.py
 │
 ├── src/mlops_e2e/                   # Pure Python package — all testable logic lives here
+│   ├── __init__.py                 # Package version / docstring
 │   ├── config.py                    # Shared config helpers (widget → env → default)
 │   ├── housing/                     # Housing pipeline logic
+│   │   ├── __init__.py
 │   │   ├── config.py               # Table names, model name, experiment name
 │   │   ├── data_prep.py            # Load from sklearn, write Delta table
 │   │   ├── feature_eng.py          # Derived features, log transforms
 │   │   ├── training.py             # Optuna + LightGBM + MLflow
 │   │   ├── evaluation.py           # Metrics, plots, artifact logging
 │   │   ├── registration.py         # Register model to Unity Catalog
-│   │   └── champion.py             # Champion/Challenger comparison & promotion
+│   │   └── champion.py             # Champion/Challenger comparison & promotion (RMSE)
 │   └── newsgroups/
+│       ├── __init__.py
 │       ├── config.py               # Embed dim, vocab size, sequence length constants
 │       ├── data.py                 # Load 20 Newsgroups, Delta read/write
 │       ├── feature_eng.py          # Tokenization, FastText training, vocab building
-│       ├── models.py               # TextCNN (PyTorch Lightning), LR/RF helpers
-│       ├── training.py             # _EnsembleModel pyfunc, train_ensemble()
-│       ├── evaluation.py           # Per-model + ensemble evaluation
-│       └── champion.py             # Champion/Challenger for F1 metric
+│       ├── models.py               # TextCNN (Lightning), TextDataset, FastText, vocab helpers
+│       ├── training.py             # LR + RF + TextCNN, _EnsembleModel pyfunc, train_ensemble()
+│       ├── evaluation.py           # Pyfunc reload; _predict_all_dict for robust “all” outputs
+│       └── champion.py             # Champion/Challenger using weighted F1
 │
 ├── app/                            # Databricks App (dashboard)
 │   ├── backend/
@@ -150,13 +153,13 @@ variables:
   warehouse_id:         (required — SQL warehouse for app queries)
 
 workspace:
-  root_path: /Users/${workspace.current_user.userName}/.bundle/...
+  root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
 
 artifacts:
   mlops_e2e_wheel:
     type: whl
-    build: python setup.py bdist_wheel    ← builds the package wheel
-    files: [{source: dist/*.whl}]         ← uploaded to Databricks
+    build: python setup.py bdist_wheel    # produces dist/mlops_e2e-0.2.0-py3-none-any.whl
+    # Wheel is referenced from job environment dependencies (see pipeline_job.yml)
 
 sync:
   include:
@@ -166,9 +169,9 @@ include:
   - resources/*.yml                       ← loads all job/experiment/app definitions
 
 targets:
-  dev:     (default) user-specific paths, dev catalog
-  staging: staging catalog, shared paths
-  prod:    prod catalog, runs as service principal `mlops-e2e-sp`
+  dev:     (default) `catalog: workspace`, user-specific job name prefix, `warehouse_id` for the app
+  staging: `catalog: staging_catalog` (placeholder — set to your real catalog)
+  prod:    `catalog: prod_catalog`, `run_as` service principal `mlops-e2e-sp`
 ```
 
 **Key insight**: Variables allow the same bundle to deploy to dev/staging/prod by just changing `catalog` and `schema`. The `run_as` stanza in prod ensures the pipeline runs with a service principal, not a user's credentials.
@@ -211,8 +214,9 @@ Tasks pass data to downstream tasks using **task values** — a Databricks-nativ
 
 | Set by | Key | Read by |
 |---|---|---|
-| `model_training` | `best_run_id` | `model_evaluation`, `model_registration` |
-| `model_registration` | `model_version` | `champion_management` |
+| `model_training` | `best_run_id` | `model_evaluation` |
+| `model_evaluation` | `best_run_id` (re-set for downstream) | `model_registration` |
+| `model_registration` | `model_version`, `best_run_id` | Available for future tasks; `champion_management` uses widgets + UC (`@Challenger`) only |
 
 ```python
 # In model_training notebook:
@@ -238,11 +242,13 @@ environments:
     spec:
       client: "4"
       dependencies:
-        - lightgbm
-        - optuna
-        - mlflow
-        - /Workspace/.../mlops_e2e-*.whl   ← the built package
+        - lightgbm>=4.0.0
+        - optuna>=3.0.0
+        - optuna-integration[mlflow]
+        - ../dist/mlops_e2e-0.2.0-py3-none-any.whl   # path relative to bundle files/
 ```
+
+(`ensemble_env` in `ensemble_pipeline_job.yml` adds scikit-learn, gensim, torch, pytorch-lightning, and the same wheel.)
 
 ### Stage-by-Stage Breakdown
 
@@ -267,7 +273,7 @@ environments:
 - **What**: Reads the feature table, splits train (70%) / val (15%) / test (15%), runs Optuna hyperparameter search for 50 trials, trains the final LightGBM model with the best hyperparameters.
 - **MLflow**:
   - `mlflow.set_experiment(experiment_name)` — sets the experiment
-  - `mlflow.lightgbm.autolog()` — automatically logs params, metrics, model
+  - `mlflow.lightgbm.autolog(log_models=False)` — logs params/metrics during tuning without double-logging the final `mlflow.lightgbm.log_model` artifact
   - Each Optuna trial is a **nested child run** under the parent run
   - Final model logged as `model` artifact
   - Test data logged as `test_data.npz` artifact (for use in evaluation)
@@ -333,7 +339,9 @@ Inter-task values:
 | Set by | Key | Read by |
 |---|---|---|
 | `feature_engineering` | `feature_run_id`, `experiment_name` | `ensemble_training` |
-| `ensemble_training` | `training_run_id`, `experiment_name` | `model_evaluation`, `model_registration` |
+| `ensemble_training` | `training_run_id`, `experiment_name` | `model_evaluation` |
+| `model_evaluation` | `training_run_id`, `experiment_name` (re-set) | `model_registration` |
+| `model_registration` | `model_version`, `training_run_id` | (optional downstream; champion uses UC aliases) |
 
 ### Stage-by-Stage Breakdown
 
@@ -351,10 +359,8 @@ This stage is unique: it trains **unsupervised embeddings** before any labeled m
 - **FastText training** (via Gensim):
   - Trained on ALL text (train + test) — unsupervised, so using test text is valid
   - `sg=1` (skip-gram), `vector_size=100`, `min_count=2`, `window=5`, 10 epochs
-- **Vocabulary**: Built from training text only (top 30,000 tokens by frequency)
-  - Index `0` = PAD token
-  - Indices `1..30000` = real tokens
-- **MLflow logging**: `fasttext_model.bin` + `vocab.json` as artifacts in the feature run
+- **Vocabulary**: Built from training text only (`max_vocab=30_000`: PAD at `0`, token indices `1 … max_vocab−1`)
+- **MLflow logging**: artifact path `fasttext_model/` (gensim `FastText.save` files) + `vocab.json` in the feature run
 - **Output task value**: `feature_run_id` (so training stage can download these artifacts)
 
 **Why this matters for the exam**: This demonstrates the pattern of logging non-model artifacts (embeddings, vocabularies, preprocessing artifacts) to MLflow for reproducibility and downstream consumption.
@@ -383,15 +389,16 @@ class _EnsembleModel(mlflow.pyfunc.PythonModel):
         # "all" returns per-model + ensemble probabilities
 ```
 
-**Per-model metrics logged**:
-- `{model}_accuracy`, `{model}_precision`, `{model}_recall`, `{model}_f1`
-- Classification report as JSON artifact
+**Per-model metrics logged** (prefixes `lr`, `rf`, `cnn`, `ensemble`):
+- `{prefix}_accuracy`, `{prefix}_precision`, `{prefix}_recall`, `{prefix}_f1_weighted` (sklearn *weighted* averages)
+- `classification_reports/{prefix}_classification_report.json` artifacts
 
 #### Stages 4–6: Evaluation, Registration, Champion Management
 
-Mirror the housing pipeline, with two differences:
-- Ensemble pyfunc loaded with `mlflow.pyfunc.load_model()`
-- Champion comparison metric: **weighted F1** (higher is better, vs. RMSE lower is better)
+Mirror the housing pipeline, with these differences:
+- **Evaluation**: reloads the logged pyfunc; `evaluate_ensemble` uses `_predict_all_dict()` so `return_mode="all"` works even when MLflow returns an ndarray or coerces outputs (see `newsgroups/evaluation.py`).
+- **Registration**: reuses `housing/registration.py` (`register_model_to_uc`, `set_model_alias`) with `ensemble_model_name` from bundle variables.
+- **Champion**: `newsgroups/champion.py` — `run_champion_management(spark, catalog, schema, model_name)` compares versions with **weighted F1** (higher is better; housing uses RMSE, lower is better).
 
 ---
 
@@ -417,13 +424,17 @@ The notebooks contain almost no logic — they just read parameters, call a func
 ```python
 def _get_widget_or_env(key: str, default: str) -> str:
     try:
-        import dbutils
-        return dbutils.widgets.get(key)   # Running in Databricks notebook
-    except:
-        return os.environ.get(key, default)  # Running locally or in tests
+        from pyspark.dbutils import DBUtils
+        from pyspark.sql import SparkSession
+        spark = SparkSession.getActiveSession()
+        if spark is not None:
+            return DBUtils(spark).widgets.get(key)
+    except Exception:
+        pass
+    return os.environ.get(key.upper(), default)
 ```
 
-This pattern appears throughout the package. It allows the same code to work in a Databricks notebook (where `dbutils` is available), in a local test (where it falls back to env vars), and in CI (where env vars can be set).
+This pattern appears throughout the package. It allows the same code to work in a Databricks notebook (active Spark + widgets), in a local test (env vars), and in CI.
 
 **Exam note**: This is the recommended pattern for making notebook code testable.
 
@@ -434,7 +445,7 @@ def create_optuna_objective(X_train, y_train, X_val, y_val):
     def objective(trial):
         params = {
             "n_estimators":    trial.suggest_int("n_estimators", 100, 1000),
-            "max_depth":       trial.suggest_int("max_depth", 3, 10),
+            "max_depth":       trial.suggest_int("max_depth", 3, 12),
             "learning_rate":   trial.suggest_float("learning_rate", 1e-3, 0.3, log=True),
             "num_leaves":      trial.suggest_int("num_leaves", 20, 300),
             "subsample":       trial.suggest_float("subsample", 0.5, 1.0),
@@ -464,13 +475,12 @@ Every notebook follows the same structure:
 # COMMAND ----------
 
 # 1. Import from the package (installed via wheel)
-from mlops_e2e.housing import data_prep
-from mlops_e2e import config
+from mlops_e2e.housing.data_prep import load_california_housing, save_raw_table
 
 # COMMAND ----------
 
 # 2. Read parameters from widgets (set by the Job or interactively)
-dbutils.widgets.text("catalog", "main")
+dbutils.widgets.text("catalog", "workspace")
 dbutils.widgets.text("schema", "mlops_e2e")
 catalog = dbutils.widgets.get("catalog")
 schema  = dbutils.widgets.get("schema")
@@ -481,13 +491,13 @@ schema  = dbutils.widgets.get("schema")
 run_id = dbutils.jobs.taskValues.get(
     taskKey="model_training",
     key="best_run_id",
-    debugValue="local-debug-run"
 )
 
 # COMMAND ----------
 
-# 4. Call the function (all logic is in the package)
-result = data_prep.save_raw_table(spark, df, catalog, schema)
+# 4. Call package functions (all logic lives under src/mlops_e2e/)
+df = load_california_housing(spark)
+table_name = save_raw_table(spark, df, catalog, schema)
 
 # COMMAND ----------
 
@@ -505,15 +515,15 @@ dbutils.jobs.taskValues.set(key="best_run_id", value=run_id)
 
 Unity Catalog uses a three-level naming convention: `catalog.schema.table_or_model`.
 
-| Resource | Full Name (dev) |
+| Resource | Example full name |
 |---|---|
-| Raw housing table | `main.mlops_e2e.california_housing_raw` |
-| Feature table | `main.mlops_e2e.california_housing_features` |
-| Registered model | `main.mlops_e2e.california_housing_model` |
-| Raw newsgroups table | `main.mlops_e2e.newsgroups_raw` |
-| Ensemble model | `main.mlops_e2e.newsgroups_ensemble_model` |
+| Raw housing table | `{catalog}.mlops_e2e.california_housing_raw` |
+| Feature table | `{catalog}.mlops_e2e.california_housing_features` |
+| Registered housing model | `{catalog}.mlops_e2e.california_housing_model` |
+| Raw newsgroups table | `{catalog}.mlops_e2e.newsgroups_raw` |
+| Registered ensemble model | `{catalog}.mlops_e2e.newsgroups_ensemble_model` |
 
-In staging/prod, `main` is replaced with `staging_catalog` or `prod_catalog` via DAB variables.
+The **dev** target in `databricks.yml` sets `catalog: workspace` (not `main`). Staging/prod use `staging_catalog` / `prod_catalog` placeholders — replace with your real UC catalog names.
 
 ### Delta Tables
 
@@ -565,7 +575,7 @@ For the housing pipeline, the MLflow run structure is:
 ```
 Experiment: /Users/{user}/mlops_e2e_california_housing
 │
-└── Parent Run: "lgbm_optuna_tuning" (the main training run)
+└── Parent Run: "optuna_tuning" (`run_name` in `housing/training.py`)
     ├── Child Run: trial_0  (Optuna trial 0)
     ├── Child Run: trial_1  (Optuna trial 1)
     ├── ...
@@ -579,22 +589,20 @@ The parent run is where the final model, test data, evaluation metrics, and plot
 | Stage | Logged to MLflow |
 |---|---|
 | Training | Model (`model/`), test data (`test_data.npz`), hyperparams, train/val metrics |
-| Evaluation | `test_rmse`, `test_mae`, `test_r2`, `test_mape`, `test_median_ae`, 4 PNG plots, `metrics_summary.json` |
-| Feature Eng (newsgroups) | `fasttext_model.bin`, `vocab.json` |
+| Evaluation | `test_rmse`, `test_mae`, `test_r2`, `test_mape`, `test_median_ae`, PNGs under `evaluation_plots/`, `evaluation_summary.json` |
+| Feature Eng (newsgroups) | `fasttext_model/` artifact dir, `vocab.json` |
 | Ensemble Training | Per-model metrics, classification reports (JSON), pyfunc model |
 | Champion Management | Comparison summary JSON |
 
-### MLflow Autolog
+### MLflow Autolog (housing)
 
 ```python
-mlflow.lightgbm.autolog()
+mlflow.lightgbm.autolog(log_models=False)
+# ... tuning + final log_model ...
+mlflow.lightgbm.autolog(disable=True)
 ```
 
-This single line automatically captures:
-- All LightGBM parameters
-- Training and validation metrics (per iteration if `eval_set` is provided)
-- Feature importance
-- The model itself
+With `log_models=False`, autolog still logs params, metrics (per iteration when `eval_set` is set), and feature importance, but **not** a duplicate model artifact. The pipeline logs the final estimator explicitly with `mlflow.lightgbm.log_model(...)`.
 
 ### Downloading Artifacts Between Stages
 
@@ -602,11 +610,9 @@ Because test data is logged in training and downloaded in evaluation, stages com
 
 ```python
 # In evaluation stage:
-local_path = mlflow.artifacts.download_artifacts(
-    run_id=run_id,
-    artifact_path="test_data.npz"
-)
-data = np.load(local_path)
+local_dir = client.download_artifacts(run_id, "test_data")
+# npz file lives inside that directory (see housing/evaluation.py)
+data = np.load(os.path.join(local_dir, "<name>.npz"))
 ```
 
 This is a clean pattern: each stage is self-contained and reads what it needs from MLflow, rather than passing large arrays through task values.
@@ -615,7 +621,9 @@ This is a clean pattern: each stage is self-contained and reads what it needs fr
 
 ## 10. Champion / Challenger Model Promotion
 
-### Concept
+The **housing** pipeline uses the flow below (RMSE on downloaded test vectors). The **newsgroups** pipeline uses the same alias mechanics but `newsgroups/champion.py` scores pyfunc models on raw text with **weighted F1** and passes `spark` into `run_champion_management`.
+
+### Concept (housing — regression)
 
 Every time the pipeline runs, it produces a new model version. Rather than blindly deploying it, the pipeline compares it against the current production model:
 
@@ -633,7 +641,7 @@ Champion Management Stage
              Archive: "Challenger-YYYYMMDD-HHMMSS"
 ```
 
-### Implementation
+### Implementation (simplified — housing)
 
 ```python
 def run_champion_management(model_name, catalog, schema) -> dict:
@@ -742,10 +750,8 @@ The App automatically gets a service principal and the listed permissions. It ca
 mlflow.set_registry_uri("databricks-uc")
 
 def get_model_versions(model_name) -> list[dict]:
-    # Uses Databricks SDK (WorkspaceClient) for reliable auth inside Apps
-    client = WorkspaceClient()
-    versions = client.model_versions.list(full_name=model_name)
-    # Fetch aliases to annotate each version
+    # UC model versions via WorkspaceClient.model_versions.list;
+    # aliases merged from registered_models.get(..., include_aliases=True)
     ...
 
 def promote_to_champion(model_name, version) -> dict:
@@ -856,7 +862,8 @@ def mock_dbutils():
 | `test_evaluation.py` | RMSE/MAE/R2 computed correctly, plots generated |
 | `test_registration.py` | MLflow register_model called with correct args |
 | `test_champion.py` | Promote/reject logic, alias setting, archive naming |
-| `test_api.py` | All 32 FastAPI endpoints return correct status codes |
+| `test_api.py` | FastAPI routes (health, pipeline, experiments, models, comparison) |
+| `test_newsgroups_evaluation.py` | `_predict_all_dict` pyfunc fallbacks (dict / ndarray / DataFrame) |
 
 ### Running Tests
 
@@ -912,7 +919,7 @@ This section maps the repo components to exam topic areas.
 | Concept | Where Used |
 |---|---|
 | `databricks.yml` targets | dev, staging, prod targets |
-| Bundle variables | `catalog`, `schema`, `model_name`, `warehouse_id` |
+| Bundle variables | `catalog`, `schema`, `model_name`, `ensemble_model_name`, `warehouse_id` |
 | Artifact build (wheel) | `artifacts.mlops_e2e_wheel` |
 | `sync.include` | Frontend dist directory |
 | Resource includes | `resources/*.yml` |
@@ -944,20 +951,15 @@ The newsgroups ensemble is an excellent example of the **pyfunc** pattern for pa
 ```python
 class _EnsembleModel(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
-        # Deserialize all sub-models from artifacts/
-        self.lr_pipeline = pickle.load(open(context.artifacts["lr_pipeline"], "rb"))
-        self.rf_pipeline = pickle.load(open(context.artifacts["rf_pipeline"], "rb"))
-        # Load CNN from state dict + config
-        # Load vocab
-    
+        # Artifacts: lr_model.pkl, rf_model.pkl, cnn_state.pt, vocab.json, cnn_config.json
+        self._lr_vec, self._lr_model = pickle.load(open(context.artifacts["lr_model"], "rb"))
+        self._rf_vec, self._rf_model = pickle.load(open(context.artifacts["rf_model"], "rb"))
+        # CNN state_dict + TextCNN from cnn_config; vocab JSON for token IDs
+
     def predict(self, context, model_input, params=None):
-        texts = model_input["text"].tolist()
-        lr_proba  = self.lr_pipeline.predict_proba(texts)
-        rf_proba  = self.rf_pipeline.predict_proba(texts)
-        cnn_proba = self._cnn_predict_proba(texts)
-        ensemble  = (lr_proba + rf_proba + cnn_proba) / 3.0
-        labels    = np.argmax(ensemble, axis=1)
-        # Return based on params["return_mode"]
+        # model_input: list[str] or first column of DataFrame
+        # params["return_mode"]: "labels" | "proba" | "all"
+        ...
 ```
 
 **Key pyfunc concepts demonstrated**:
