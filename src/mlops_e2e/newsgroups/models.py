@@ -179,7 +179,7 @@ class TextCNN(pl.LightningModule):
         embedding_matrix: np.ndarray | None = None,
         kernel_sizes: tuple[int, ...] = (2, 3, 4, 5),
         num_filters: int = 128,
-        dropout: float = 0.5,
+        dropout: float = 0.3,
         lr: float = 1e-3,
     ) -> None:
         super().__init__()
