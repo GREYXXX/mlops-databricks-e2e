@@ -12,14 +12,14 @@ class TestAddDerivedFeatures:
     """Tests for add_derived_features()."""
 
     def test_adds_three_columns(self, sample_housing_spark):
-        from mlops_e2e.feature_eng import add_derived_features
+        from mlops_e2e.housing.feature_eng import add_derived_features
 
         result = add_derived_features(sample_housing_spark)
         new_cols = {"rooms_per_household", "bedrooms_ratio", "population_per_household"}
         assert new_cols.issubset(set(result.columns))
 
     def test_rooms_per_household_formula(self, spark):
-        from mlops_e2e.feature_eng import add_derived_features
+        from mlops_e2e.housing.feature_eng import add_derived_features
 
         df = spark.createDataFrame(
             [
@@ -43,7 +43,7 @@ class TestAddDerivedFeatures:
         assert abs(result["rooms_per_household"] - 6.0) < 1e-6
 
     def test_bedrooms_ratio_formula(self, spark):
-        from mlops_e2e.feature_eng import add_derived_features
+        from mlops_e2e.housing.feature_eng import add_derived_features
 
         df = spark.createDataFrame(
             [
@@ -67,7 +67,7 @@ class TestAddDerivedFeatures:
         assert abs(result["bedrooms_ratio"] - 0.25) < 1e-6
 
     def test_bedrooms_ratio_zero_rooms(self, spark):
-        from mlops_e2e.feature_eng import add_derived_features
+        from mlops_e2e.housing.feature_eng import add_derived_features
 
         df = spark.createDataFrame(
             [
@@ -90,7 +90,7 @@ class TestAddDerivedFeatures:
         assert result["bedrooms_ratio"] == 0.0
 
     def test_population_per_household_formula(self, spark):
-        from mlops_e2e.feature_eng import add_derived_features
+        from mlops_e2e.housing.feature_eng import add_derived_features
 
         df = spark.createDataFrame(
             [
@@ -114,14 +114,14 @@ class TestAddDerivedFeatures:
         assert abs(result["population_per_household"] - 100.0) < 1e-6
 
     def test_preserves_existing_columns(self, sample_housing_spark):
-        from mlops_e2e.feature_eng import add_derived_features
+        from mlops_e2e.housing.feature_eng import add_derived_features
 
         original_cols = set(sample_housing_spark.columns)
         result = add_derived_features(sample_housing_spark)
         assert original_cols.issubset(set(result.columns))
 
     def test_no_nan_in_derived(self, sample_housing_spark):
-        from mlops_e2e.feature_eng import add_derived_features
+        from mlops_e2e.housing.feature_eng import add_derived_features
 
         result = add_derived_features(sample_housing_spark)
         for col_name in ["rooms_per_household", "bedrooms_ratio", "population_per_household"]:
@@ -133,7 +133,7 @@ class TestLogTransformSkewed:
     """Tests for log_transform_skewed()."""
 
     def test_applies_log1p(self, spark):
-        from mlops_e2e.feature_eng import log_transform_skewed
+        from mlops_e2e.housing.feature_eng import log_transform_skewed
 
         df = spark.createDataFrame([(10.0, 20.0)], ["a", "b"])
         result = log_transform_skewed(df, ["a"]).collect()[0]
@@ -144,7 +144,7 @@ class TestLogTransformSkewed:
         assert result["b"] == 20.0
 
     def test_multiple_columns(self, spark):
-        from mlops_e2e.feature_eng import log_transform_skewed
+        from mlops_e2e.housing.feature_eng import log_transform_skewed
 
         df = spark.createDataFrame([(5.0, 10.0, 99.0)], ["a", "b", "c"])
         result = log_transform_skewed(df, ["a", "b"]).collect()[0]
@@ -154,7 +154,7 @@ class TestLogTransformSkewed:
         assert result["c"] == 99.0
 
     def test_zero_value(self, spark):
-        from mlops_e2e.feature_eng import log_transform_skewed
+        from mlops_e2e.housing.feature_eng import log_transform_skewed
 
         df = spark.createDataFrame([(0.0,)], ["a"])
         result = log_transform_skewed(df, ["a"]).collect()[0]
@@ -165,7 +165,7 @@ class TestCreateFeatureTable:
     """Tests for create_feature_table()."""
 
     def test_end_to_end_pipeline(self, spark, sample_housing_spark):
-        from mlops_e2e.feature_eng import create_feature_table
+        from mlops_e2e.housing.feature_eng import create_feature_table
 
         db_name = "test_feat"
         spark.sql(f"CREATE DATABASE IF NOT EXISTS {db_name}")
@@ -175,7 +175,7 @@ class TestCreateFeatureTable:
             f"{db_name}.california_housing_raw"
         )
 
-        with patch("mlops_e2e.feature_eng.get_full_table_name") as mock_name:
+        with patch("mlops_e2e.housing.feature_eng.get_full_table_name") as mock_name:
             mock_name.side_effect = lambda cat, sch, tbl: f"{db_name}.{tbl}"
             result = create_feature_table(spark, "c", "s")
 

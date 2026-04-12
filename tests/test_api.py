@@ -131,21 +131,24 @@ class TestModelEndpoints:
         assert response.status_code == 200
         assert response.json() == []
 
-    @patch("app.backend.services.mlflow_service._get_client")
-    def test_list_versions_with_results(self, mock_get_client, client):
-        mock_client = MagicMock()
-        mock_version = MagicMock()
-        mock_version.version = "1"
-        mock_version.name = "model"
-        mock_version.creation_timestamp = 1000
-        mock_version.last_updated_timestamp = 2000
-        mock_version.status = "READY"
-        mock_version.source = "runs:/abc/model"
-        mock_version.run_id = "abc"
-        mock_version.aliases = ["Champion"]
+    @patch("app.backend.services.mlflow_service._get_alias_map")
+    @patch("app.backend.services.mlflow_service._list_uc_model_versions")
+    def test_list_versions_with_results(self, mock_list_uc, mock_alias_map, client):
+        # get_model_versions uses Databricks SDK (_list_uc_model_versions), not
+        # MlflowClient.search_model_versions — patch the UC list + alias map.
+        mock_mv = MagicMock()
+        mock_mv.version = 1
+        mock_mv.model_name = "main.mlops_e2e.california_housing_model"
+        mock_mv.created_at = 1000
+        mock_mv.updated_at = 2000
+        mock_status = MagicMock()
+        mock_status.value = "READY"
+        mock_mv.status = mock_status
+        mock_mv.source = "runs:/abc/model"
+        mock_mv.run_id = "abc"
 
-        mock_client.search_model_versions.return_value = [mock_version]
-        mock_get_client.return_value = mock_client
+        mock_list_uc.return_value = [mock_mv]
+        mock_alias_map.return_value = {"1": ["Champion"]}
 
         response = client.get("/api/models/versions")
         assert response.status_code == 200

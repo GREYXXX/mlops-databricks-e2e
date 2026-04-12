@@ -18,7 +18,6 @@ print(f"Using catalog={catalog}, schema={schema}")
 
 # COMMAND ----------
 
-# Get best_run_id from the training stage
 best_run_id = dbutils.jobs.taskValues.get(
     taskKey="model_training",
     key="best_run_id",
@@ -27,11 +26,10 @@ print(f"Evaluating model from run: {best_run_id}")
 
 # COMMAND ----------
 
-from mlops_e2e.evaluation import evaluate_model
+from mlops_e2e.housing.evaluation import evaluate_model
 
 # COMMAND ----------
 
-# Evaluate the model
 metrics = evaluate_model(run_id=best_run_id)
 print("Evaluation metrics:")
 for name, value in metrics.items():
@@ -39,5 +37,4 @@ for name, value in metrics.items():
 
 # COMMAND ----------
 
-# Pass best_run_id to downstream stages
 dbutils.jobs.taskValues.set(key="best_run_id", value=best_run_id)

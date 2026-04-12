@@ -9,12 +9,12 @@ class TestRegisterModelToUC:
     """Tests for register_model_to_uc()."""
 
     def test_calls_register_model_with_correct_args(self):
-        from mlops_e2e.registration import register_model_to_uc
+        from mlops_e2e.housing.registration import register_model_to_uc
 
         mock_mv = MagicMock()
         mock_mv.version = "1"
 
-        with patch("mlops_e2e.registration.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.registration.mlflow") as mock_mlflow:
             mock_mlflow.register_model.return_value = mock_mv
 
             version = register_model_to_uc(
@@ -30,12 +30,12 @@ class TestRegisterModelToUC:
         assert version == "1"
 
     def test_returns_version_string(self):
-        from mlops_e2e.registration import register_model_to_uc
+        from mlops_e2e.housing.registration import register_model_to_uc
 
         mock_mv = MagicMock()
         mock_mv.version = "5"
 
-        with patch("mlops_e2e.registration.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.registration.mlflow") as mock_mlflow:
             mock_mlflow.register_model.return_value = mock_mv
 
             version = register_model_to_uc("run123", "cat.sch.model")
@@ -47,9 +47,9 @@ class TestSetModelAlias:
     """Tests for set_model_alias()."""
 
     def test_calls_client_with_correct_args(self):
-        from mlops_e2e.registration import set_model_alias
+        from mlops_e2e.housing.registration import set_model_alias
 
-        with patch("mlops_e2e.registration.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.registration.mlflow") as mock_mlflow:
             mock_client = MagicMock()
             mock_mlflow.tracking.MlflowClient.return_value = mock_client
 
@@ -62,9 +62,9 @@ class TestSetModelAlias:
         )
 
     def test_champion_alias(self):
-        from mlops_e2e.registration import set_model_alias
+        from mlops_e2e.housing.registration import set_model_alias
 
-        with patch("mlops_e2e.registration.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.registration.mlflow") as mock_mlflow:
             mock_client = MagicMock()
             mock_mlflow.tracking.MlflowClient.return_value = mock_client
 
