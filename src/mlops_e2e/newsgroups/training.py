@@ -121,6 +121,7 @@ def _train_textcnn(
     )
 
     from pytorch_lightning import Trainer
+    from pytorch_lightning.callbacks import EarlyStopping
 
     trainer = Trainer(
         max_epochs=epochs,
@@ -129,6 +130,9 @@ def _train_textcnn(
         enable_progress_bar=True,
         enable_model_summary=False,
         logger=False,
+        callbacks=[
+            EarlyStopping(monitor="val_loss", patience=5, mode="min"),
+        ],
     )
     trainer.fit(model, train_dl, val_dl)
     return model
