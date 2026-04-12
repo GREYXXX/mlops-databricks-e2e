@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from sklearn.datasets import fetch_california_housing
 
-from mlops_e2e.config import RAW_TABLE_NAME, get_full_table_name
+from mlops_e2e.config import get_full_table_name
+from mlops_e2e.housing.config import RAW_TABLE_NAME
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame, SparkSession
@@ -30,8 +31,7 @@ def load_california_housing(spark: SparkSession) -> DataFrame:
     logger.info(
         "Loaded California Housing dataset: %d rows, %d columns", len(pdf), len(pdf.columns)
     )
-    spark_df = spark.createDataFrame(pdf)
-    return spark_df
+    return spark.createDataFrame(pdf)
 
 
 def save_raw_table(

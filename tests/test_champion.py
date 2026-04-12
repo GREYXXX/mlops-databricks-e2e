@@ -13,12 +13,12 @@ class TestGetChampionVersion:
     """Tests for get_champion_version()."""
 
     def test_returns_version_when_champion_exists(self):
-        from mlops_e2e.champion import get_champion_version
+        from mlops_e2e.housing.champion import get_champion_version
 
         mock_mv = MagicMock()
         mock_mv.version = "3"
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_client = MagicMock()
             mock_client.get_model_version_by_alias.return_value = mock_mv
             mock_mlflow.tracking.MlflowClient.return_value = mock_client
@@ -29,9 +29,9 @@ class TestGetChampionVersion:
         mock_client.get_model_version_by_alias.assert_called_once_with("cat.sch.model", "Champion")
 
     def test_returns_none_when_no_champion(self):
-        from mlops_e2e.champion import get_champion_version
+        from mlops_e2e.housing.champion import get_champion_version
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_client = MagicMock()
             mock_client.get_model_version_by_alias.side_effect = mlflow.exceptions.MlflowException(
                 "not found"
@@ -48,7 +48,7 @@ class TestCompareModels:
     """Tests for compare_models()."""
 
     def test_returns_both_rmse_values(self, sample_test_data):
-        from mlops_e2e.champion import compare_models
+        from mlops_e2e.housing.champion import compare_models
 
         y_test = sample_test_data["y_test"]
 
@@ -58,7 +58,7 @@ class TestCompareModels:
         mock_challenger = MagicMock()
         mock_challenger.predict.return_value = y_test + 0.1  # Better
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_mlflow.lightgbm.load_model.side_effect = [mock_champion, mock_challenger]
 
             result = compare_models("1", "2", "cat.sch.model", sample_test_data)
@@ -69,7 +69,7 @@ class TestCompareModels:
         assert result["challenger_rmse"] > 0
 
     def test_challenger_wins_when_lower_rmse(self, sample_test_data):
-        from mlops_e2e.champion import compare_models
+        from mlops_e2e.housing.champion import compare_models
 
         y_test = sample_test_data["y_test"]
 
@@ -79,7 +79,7 @@ class TestCompareModels:
         mock_challenger = MagicMock()
         mock_challenger.predict.return_value = y_test + 0.1
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_mlflow.lightgbm.load_model.side_effect = [mock_champion, mock_challenger]
 
             result = compare_models("1", "2", "cat.sch.model", sample_test_data)
@@ -87,7 +87,7 @@ class TestCompareModels:
         assert result["challenger_rmse"] < result["champion_rmse"]
 
     def test_champion_retains_when_lower_rmse(self, sample_test_data):
-        from mlops_e2e.champion import compare_models
+        from mlops_e2e.housing.champion import compare_models
 
         y_test = sample_test_data["y_test"]
 
@@ -97,7 +97,7 @@ class TestCompareModels:
         mock_challenger = MagicMock()
         mock_challenger.predict.return_value = y_test + 0.5  # Worse
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_mlflow.lightgbm.load_model.side_effect = [mock_champion, mock_challenger]
 
             result = compare_models("1", "2", "cat.sch.model", sample_test_data)
@@ -109,9 +109,9 @@ class TestPromoteChallenger:
     """Tests for promote_challenger()."""
 
     def test_sets_champion_alias_and_removes_challenger(self):
-        from mlops_e2e.champion import promote_challenger
+        from mlops_e2e.housing.champion import promote_challenger
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_client = MagicMock()
             mock_mlflow.tracking.MlflowClient.return_value = mock_client
 
@@ -129,9 +129,9 @@ class TestPromoteChallenger:
         assert result is None  # No former champion
 
     def test_archives_former_champion_with_timestamp_alias(self):
-        from mlops_e2e.champion import promote_challenger
+        from mlops_e2e.housing.champion import promote_challenger
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_client = MagicMock()
             mock_mlflow.tracking.MlflowClient.return_value = mock_client
 
@@ -148,9 +148,9 @@ class TestPromoteChallenger:
         assert result == expected_alias
 
     def test_handles_missing_challenger_alias_gracefully(self):
-        from mlops_e2e.champion import promote_challenger
+        from mlops_e2e.housing.champion import promote_challenger
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_client = MagicMock()
             mock_client.delete_registered_model_alias.side_effect = (
                 mlflow.exceptions.MlflowException("not found")
@@ -168,13 +168,13 @@ class TestRunChampionManagement:
     """Tests for run_champion_management()."""
 
     def test_auto_promotes_when_no_champion(self, sample_test_data, tmp_path):
-        from mlops_e2e.champion import run_champion_management
+        from mlops_e2e.housing.champion import run_champion_management
 
         # Save test data
         test_data_path = str(tmp_path / "test.npz")
         np.savez(test_data_path, **sample_test_data)
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_client = MagicMock()
             mock_mlflow.tracking.MlflowClient.return_value = mock_client
             mock_mlflow.exceptions = mlflow.exceptions
@@ -201,14 +201,14 @@ class TestRunChampionManagement:
         assert result["challenger_version"] == "1"
 
     def test_promotes_when_challenger_better(self, sample_test_data, tmp_path):
-        from mlops_e2e.champion import run_champion_management
+        from mlops_e2e.housing.champion import run_champion_management
 
         test_data_path = str(tmp_path / "test.npz")
         np.savez(test_data_path, **sample_test_data)
 
         y_test = sample_test_data["y_test"]
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_client = MagicMock()
             mock_mlflow.tracking.MlflowClient.return_value = mock_client
             mock_mlflow.exceptions = mlflow.exceptions
@@ -250,14 +250,14 @@ class TestRunChampionManagement:
         assert result["archived_champion_alias"] == f"Champion-{now_str}"
 
     def test_rejects_when_champion_better(self, sample_test_data, tmp_path):
-        from mlops_e2e.champion import run_champion_management
+        from mlops_e2e.housing.champion import run_champion_management
 
         test_data_path = str(tmp_path / "test.npz")
         np.savez(test_data_path, **sample_test_data)
 
         y_test = sample_test_data["y_test"]
 
-        with patch("mlops_e2e.champion.mlflow") as mock_mlflow:
+        with patch("mlops_e2e.housing.champion.mlflow") as mock_mlflow:
             mock_client = MagicMock()
             mock_mlflow.tracking.MlflowClient.return_value = mock_client
             mock_mlflow.exceptions = mlflow.exceptions
