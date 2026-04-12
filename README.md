@@ -162,7 +162,7 @@ Override per target in `databricks.yml` or via CLI: `databricks bundle deploy -t
 mlops_e2e_example/
 ├── databricks.yml              # DAB root config (targets, variables, artifacts)
 ├── src/mlops_e2e/              # Python package (testable pipeline logic)
-├── notebooks/                  # Databricks notebooks (thin wrappers)
+├── notebooks/                  # housing/ + newsgroups/ pipeline notebooks
 ├── resources/                  # DAB resource definitions (job, app, experiment)
 ├── app/                        # Databricks App (FastAPI + React)
 │   ├── backend/                # FastAPI API + services
@@ -186,7 +186,7 @@ Tests use real local Spark for DataFrame operations and mock MLflow/Databricks S
 
 If `databricks bundle deploy` fails with an experiment name conflict, this is because an MLflow experiment with the same name already exists in the workspace.
 
-This project avoids the issue by namespacing the experiment under each user's directory (`/Users/{username}/mlops_e2e_california_housing`). The DAB resource in `resources/experiment.yml` and the training notebook (`notebooks/03_model_training.py`) both construct the path using the current user, so each user gets their own experiment automatically.
+This project avoids the issue by namespacing the experiment under each user's directory (`/Users/{username}/mlops_e2e_california_housing`). The DAB resource in `resources/experiment.yml` and the training notebook (`notebooks/housing/03_model_training.py`) both construct the path using the current user, so each user gets their own experiment automatically.
 
 If you still encounter a conflict (e.g., from a previous deployment), bind the existing experiment to the bundle:
 

@@ -53,7 +53,7 @@ export const STAGE_CODE: Record<string, StageCodeEntry> = {
     label: "Data Preparation",
     description: "Load the California Housing dataset and persist as a Delta table in Unity Catalog.",
     sourceFile: "src/mlops_e2e/housing/data_prep.py",
-    notebookFile: "notebooks/01_data_preparation.py",
+    notebookFile: "notebooks/housing/01_data_preparation.py",
     sourceCode: `"""Data preparation: load California Housing dataset and write to Delta table."""
 
 from __future__ import annotations
@@ -167,7 +167,7 @@ print(f"Table {table_name} has {row_count} rows")`,
     label: "Feature Engineering",
     description: "Transform raw features into a training-ready feature table with derived ratios and log transforms.",
     sourceFile: "src/mlops_e2e/housing/feature_eng.py",
-    notebookFile: "notebooks/02_feature_engineering.py",
+    notebookFile: "notebooks/housing/02_feature_engineering.py",
     sourceCode: `"""Feature engineering: derived features, log transforms, and feature table creation."""
 
 from __future__ import annotations
@@ -308,7 +308,7 @@ display(features_df.limit(10))`,
     label: "Model Training",
     description: "Train a LightGBM model with Optuna hyperparameter tuning, logging everything to MLflow.",
     sourceFile: "src/mlops_e2e/housing/training.py",
-    notebookFile: "notebooks/03_model_training.py",
+    notebookFile: "notebooks/housing/03_model_training.py",
     sourceCode: `"""Model training with LightGBM and Optuna hyperparameter tuning."""
 
 from __future__ import annotations
@@ -552,7 +552,7 @@ print(f"Set task value best_run_id={best_run_id}")`,
     label: "Model Evaluation",
     description: "Compute evaluation metrics and generate comparison artifacts for the best model.",
     sourceFile: "src/mlops_e2e/housing/evaluation.py",
-    notebookFile: "notebooks/04_model_evaluation.py",
+    notebookFile: "notebooks/housing/04_model_evaluation.py",
     sourceCode: `"""Model evaluation: metrics computation and plot generation."""
 
 from __future__ import annotations
@@ -795,7 +795,7 @@ dbutils.jobs.taskValues.set(key="best_run_id", value=best_run_id)`,
     label: "Model Registration",
     description: "Register the best model to Unity Catalog and assign the \"Challenger\" alias.",
     sourceFile: "src/mlops_e2e/housing/registration.py",
-    notebookFile: "notebooks/05_model_registration.py",
+    notebookFile: "notebooks/housing/05_model_registration.py",
     sourceCode: `"""Model registration to Unity Catalog."""
 
 from __future__ import annotations
@@ -905,7 +905,7 @@ dbutils.jobs.taskValues.set(key="best_run_id", value=best_run_id)`,
     label: "Champion Management",
     description: "Compare the Challenger model against the current Champion and promote if better.",
     sourceFile: "src/mlops_e2e/housing/champion.py",
-    notebookFile: "notebooks/06_champion_management.py",
+    notebookFile: "notebooks/housing/06_champion_management.py",
     sourceCode: `"""Champion/challenger model comparison and promotion logic."""
 
 from __future__ import annotations
