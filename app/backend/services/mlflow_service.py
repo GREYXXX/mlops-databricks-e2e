@@ -48,7 +48,7 @@ def _resolve_experiment_name() -> str:
     notebook_root = os.getenv("NOTEBOOK_ROOT_PATH", "")
     if "/Users/" in notebook_root:
         username = notebook_root.split("/Users/")[1].split("/")[0]
-        user_exp = f"/Users/{username}/mlops_e2e_california_housing"
+        user_exp = f"/Users/{username}/mlops_e2e_newsgroups_ensemble"
         exp = client.get_experiment_by_name(user_exp)
         if exp is not None:
             return exp.name
@@ -56,19 +56,19 @@ def _resolve_experiment_name() -> str:
     # 3. Search by pattern, prefer most recently updated
     try:
         results = client.search_experiments(
-            filter_string="name LIKE '%mlops_e2e_california_housing'"
+            filter_string="name LIKE '%mlops_e2e_newsgroups_ensemble%'"
         )
         if results:
             best = max(results, key=lambda e: e.last_update_time or 0)
             return best.name
     except Exception as e:
-        _log_client_issue("search_experiments for mlops_e2e_california_housing", e)
+        _log_client_issue("search_experiments for mlops_e2e_newsgroups_ensemble", e)
 
-    return _EXPERIMENT_NAME_ENV or "/mlops_e2e_california_housing"
+    return _EXPERIMENT_NAME_ENV or "/mlops_e2e_newsgroups_ensemble"
 
 
 EXPERIMENT_NAME: str = ""  # resolved lazily
-MODEL_NAME = os.getenv("UC_MODEL_NAME", "main.mlops_e2e.california_housing_model")
+MODEL_NAME = os.getenv("UC_MODEL_NAME", "main.mlops_e2e.newsgroups_ensemble_model")
 
 _client: MlflowClient | None = None
 

@@ -3,7 +3,9 @@ import os
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.jobs import RunLifeCycleState, RunResultState
 
-JOB_NAME = os.getenv("PIPELINE_JOB_NAME", "MLOps E2E Pipeline")
+JOB_NAME = os.getenv(
+    "PIPELINE_JOB_NAME", "[dev] MLOps E2E Newsgroups Ensemble Pipeline"
+)
 
 _ws: WorkspaceClient | None = None
 

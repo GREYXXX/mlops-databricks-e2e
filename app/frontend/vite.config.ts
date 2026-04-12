@@ -5,12 +5,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // Use 127.0.0.1 (not localhost): Node may resolve localhost to ::1 while
+      // uvicorn defaults to IPv4-only, which causes ECONNREFUSED on macOS.
       "/api": {
-        target: "http://localhost:8000",
+        target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
       "/health": {
-        target: "http://localhost:8000",
+        target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
     },

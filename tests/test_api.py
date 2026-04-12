@@ -183,8 +183,14 @@ class TestComparisonEndpoint:
         assert data["champion"]["version"] is None
         assert data["challenger"]["version"] is None
 
+    @patch(
+        "app.backend.routes.comparison.resolve_metrics_profile",
+        return_value="regression",
+    )
     @patch("app.backend.services.mlflow_service._get_client")
-    def test_comparison_champion_only(self, mock_get_client, client):
+    def test_comparison_champion_only(
+        self, mock_get_client, _mock_profile, client
+    ):
         mock_client = MagicMock()
 
         mock_champion_mv = MagicMock()
