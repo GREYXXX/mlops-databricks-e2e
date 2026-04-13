@@ -2,6 +2,7 @@ import os
 
 from fastapi import APIRouter
 
+from ..metrics_profile import resolve_metrics_profile
 from ..services import jobs_service, mlflow_service
 
 router = APIRouter(prefix="/api", tags=["config"])
@@ -21,7 +22,7 @@ def get_config():
     ws = jobs_service._get_client()
     host = str(ws.config.host).rstrip("/")
 
-    model_name = os.getenv("UC_MODEL_NAME", "main.mlops_e2e.california_housing_model")
+    model_name = os.getenv("UC_MODEL_NAME", "main.mlops_e2e.newsgroups_ensemble_model")
     parts = model_name.split(".")
     model_url = f"{host}/explore/data/models/{'/'.join(parts)}" if len(parts) == 3 else None
 
@@ -51,4 +52,5 @@ def get_config():
         "experiment_id": experiment_id,
         "experiment_url": experiment_url,
         "notebook_urls": notebook_urls,
+        "metrics_profile": resolve_metrics_profile(),
     }

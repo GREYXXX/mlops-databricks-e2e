@@ -151,6 +151,8 @@ export interface WorkspaceConfig {
   experiment_id: string | null;
   experiment_url: string | null;
   notebook_urls: Record<string, string>;
+  /** Omitted by older backends; UI defaults to regression. */
+  metrics_profile?: "regression" | "classification";
 }
 
 export const api = {

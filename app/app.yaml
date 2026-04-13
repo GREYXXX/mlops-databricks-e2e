@@ -9,17 +9,17 @@ env:
   - name: DATABRICKS_WAREHOUSE_ID
     valueFrom: DATABRICKS_WAREHOUSE_ID
   - name: PIPELINE_JOB_NAME
-    value: "[dev john] [dev] MLOps E2E Pipeline"
+    value: "[dev john] [dev] MLOps E2E Newsgroups Ensemble Pipeline"
   - name: MLFLOW_EXPERIMENT_NAME
-    value: /Users/john@gmail.com/mlops_e2e_california_housing
+    value: /mlops_e2e_newsgroups_ensemble
   - name: UC_MODEL_NAME
-    value: workspace.mlops_e2e.california_housing_model
+    value: workspace.mlops_e2e.newsgroups_ensemble_model
   - name: UC_CATALOG
     value: workspace
   - name: UC_SCHEMA
     value: mlops_e2e
   - name: NOTEBOOK_ROOT_PATH
-    value: /Users/john@gmail.com/mlops_e2e_california_housing/.bundle/mlops_e2e_example/dev/files/notebooks
+    value: /Workspace/Users/john@gmail.com/.bundle/mlops_e2e_example/dev/files/notebooks/newsgroups
   - name: MLFLOW_REGISTRY_URI
     value: databricks-uc
   - name: MLFLOW_TRACKING_URI

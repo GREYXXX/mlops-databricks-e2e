@@ -10,18 +10,16 @@ import { Badge } from "./ui/Badge";
 import { Card, CardHeader, CardBody } from "./ui/Card";
 import { formatMetric } from "../lib/utils";
 import { cn } from "../lib/utils";
-
-const METRIC_LABELS: Record<string, string> = {
-  rmse: "RMSE",
-  mae: "MAE",
-  r2: "R\u00B2",
-  mape: "MAPE",
-  median_ae: "Median AE",
-};
-
-const METRIC_ORDER = ["rmse", "mae", "r2", "mape", "median_ae"];
-
-const LOWER_IS_BETTER = new Set(["rmse", "mae", "mape", "median_ae"]);
+import {
+  type MetricsProfile,
+  COMPARISON_LABELS,
+  COMPARISON_ORDER,
+  HISTORY_TABLE_HEADERS,
+  historyTableValues,
+  LOWER_IS_BETTER,
+  PRIMARY_METRIC,
+  PRIMARY_METRIC_LABEL,
+} from "../lib/metricsDisplay";
 
 function LoadingSkeleton() {
   return (
@@ -86,7 +84,13 @@ function MetricRow({
 }
 
 
-function ModelVersionHistory({ onChange }: { onChange: () => void }) {
+function ModelVersionHistory({
+  onChange,
+  metricsProfile,
+}: {
+  onChange: () => void;
+  metricsProfile: MetricsProfile;
+}) {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
   const fetcher = useCallback(
@@ -168,14 +172,20 @@ function ModelVersionHistory({ onChange }: { onChange: () => void }) {
             <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <th className="px-4 py-3">Version</th>
               <th className="px-4 py-3">Aliases</th>
-              <th className="px-4 py-3">RMSE</th>
-              <th className="px-4 py-3">MAE</th>
-              <th className="px-4 py-3">R²</th>
+              {HISTORY_TABLE_HEADERS[metricsProfile].map((h) => (
+                <th key={h} className="px-4 py-3">
+                  {h}
+                </th>
+              ))}
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {data.items.map((item) => {
+              const metricCols = historyTableValues(
+                item.metrics,
+                metricsProfile
+              );
               return (
                 <tr
                   key={item.version}
@@ -207,21 +217,14 @@ function ModelVersionHistory({ onChange }: { onChange: () => void }) {
                       <span className="text-xs text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 font-mono text-gray-700">
-                    {item.metrics.test_rmse != null
-                      ? formatMetric(item.metrics.test_rmse)
-                      : "--"}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-gray-700">
-                    {item.metrics.test_mae != null
-                      ? formatMetric(item.metrics.test_mae)
-                      : "--"}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-gray-700">
-                    {item.metrics.test_r2 != null
-                      ? formatMetric(item.metrics.test_r2)
-                      : "--"}
-                  </td>
+                  {metricCols.map((val, i) => (
+                    <td
+                      key={i}
+                      className="px-4 py-3 font-mono text-gray-700"
+                    >
+                      {formatMetric(val)}
+                    </td>
+                  ))}
                   <td className="px-4 py-3 text-right">
                     {confirmAction?.version === item.version ? (
                       <span className="inline-flex items-center gap-2">
@@ -368,6 +371,14 @@ export function ModelComparison() {
   }
   if (!data) return null;
 
+  const metricsProfile: MetricsProfile =
+    config?.metrics_profile ?? "regression";
+  const metricOrder = COMPARISON_ORDER[metricsProfile];
+  const metricLabels = COMPARISON_LABELS[metricsProfile];
+  const lowerIsBetter = LOWER_IS_BETTER[metricsProfile];
+  const primaryKey = PRIMARY_METRIC[metricsProfile];
+  const primaryLabel = PRIMARY_METRIC_LABEL[metricsProfile];
+
   const promotionBadge = PROMOTION_BADGES[data.promotion_status] || {
     variant: "neutral" as const,
     text: data.promotion_status,
@@ -379,7 +390,7 @@ export function ModelComparison() {
   const hasDeltas = deltaKeys.length > 0;
 
   // Gather all metric keys from both sides
-  const allMetricKeys = METRIC_ORDER.filter(
+  const allMetricKeys = metricOrder.filter(
     (k) =>
       deltas[k] !== undefined ||
       data.champion.metrics[k] !== undefined ||
@@ -418,19 +429,22 @@ export function ModelComparison() {
       </div>
 
       {/* Promotion decision explanation */}
-      {hasDeltas && deltas.rmse && (
+      {hasDeltas && deltas[primaryKey] && (
         <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
           <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">
             Promotion Decision Logic
           </h4>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full bg-amber-400" />
               <span className="text-gray-700">
                 Champion v{data.champion.version}
               </span>
               <span className="font-mono text-gray-500">
-                RMSE {deltas.rmse ? formatMetric(deltas.rmse.champion) : "N/A"}
+                {primaryLabel}{" "}
+                {deltas[primaryKey]
+                  ? formatMetric(deltas[primaryKey].champion)
+                  : "N/A"}
               </span>
             </div>
             <span className="text-gray-400">vs</span>
@@ -440,17 +454,24 @@ export function ModelComparison() {
                 Challenger v{data.challenger.version}
               </span>
               <span className="font-mono text-gray-500">
-                RMSE {deltas.rmse ? formatMetric(deltas.rmse.challenger) : "N/A"}
+                {primaryLabel}{" "}
+                {deltas[primaryKey]
+                  ? formatMetric(deltas[primaryKey].challenger)
+                  : "N/A"}
               </span>
             </div>
             <span className="ml-2 text-xs">
-              {deltas.rmse?.improved ? (
+              {deltas[primaryKey]?.improved ? (
                 <span className="rounded bg-emerald-100 px-2 py-0.5 text-emerald-700 font-medium">
-                  Challenger is better (lower RMSE)
+                  {metricsProfile === "classification"
+                    ? "Challenger is better (higher weighted F1)"
+                    : "Challenger is better (lower RMSE)"}
                 </span>
               ) : (
                 <span className="rounded bg-amber-100 px-2 py-0.5 text-amber-700 font-medium">
-                  Champion retains (lower RMSE)
+                  {metricsProfile === "classification"
+                    ? "Champion retains (higher weighted F1)"
+                    : "Champion retains (lower RMSE)"}
                 </span>
               )}
             </span>
@@ -483,14 +504,14 @@ export function ModelComparison() {
                   const delta = deltas[key];
                   const value = delta?.champion ?? data.champion.metrics[key];
                   const isWinner = delta
-                    ? LOWER_IS_BETTER.has(key)
+                    ? lowerIsBetter.has(key)
                       ? delta.champion <= delta.challenger
                       : delta.champion >= delta.challenger
                     : undefined;
                   return (
                     <MetricRow
                       key={key}
-                      label={METRIC_LABELS[key] || key}
+                      label={metricLabels[key] || key}
                       value={value}
                       isWinner={isWinner === true}
                     />
@@ -531,14 +552,14 @@ export function ModelComparison() {
                     const value =
                       delta?.challenger ?? data.challenger.metrics[key];
                     const isWinner = delta
-                      ? LOWER_IS_BETTER.has(key)
+                      ? lowerIsBetter.has(key)
                         ? delta.challenger < delta.champion
                         : delta.challenger > delta.champion
                       : undefined;
                     return (
                       <MetricRow
                         key={key}
-                        label={METRIC_LABELS[key] || key}
+                        label={metricLabels[key] || key}
                         value={value}
                         isWinner={isWinner === true}
                         delta={delta?.delta}
@@ -583,7 +604,10 @@ export function ModelComparison() {
       </div>
 
       {/* All Model Versions */}
-      <ModelVersionHistory onChange={() => refreshComparison()} />
+      <ModelVersionHistory
+        metricsProfile={metricsProfile}
+        onChange={() => refreshComparison()}
+      />
     </div>
   );
 }
