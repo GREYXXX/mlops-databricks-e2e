@@ -4,20 +4,13 @@ import type { TrainingHistoryItem, RunDetail, WorkspaceConfig } from "../api/cli
 import { useApi } from "../hooks/useApi";
 import { MetricsPanel } from "./MetricsPanel";
 import { formatDate, formatMetric, cn } from "../lib/utils";
-
-/** Key hyperparameters to display in the table (condensed). */
-const KEY_PARAMS = ["num_leaves", "learning_rate", "n_estimators", "max_depth"];
-
-function findMetric(
-  metrics: Record<string, number>,
-  search: string
-): number | null {
-  if (metrics[search] != null) return metrics[search];
-  for (const [k, v] of Object.entries(metrics)) {
-    if (k.toLowerCase().includes(search.toLowerCase())) return v;
-  }
-  return null;
-}
+import {
+  type MetricsProfile,
+  HISTORY_TABLE_HEADERS,
+  historyTableValues,
+  KEY_PARAMS,
+  KEY_PARAM_SHORT,
+} from "../lib/metricsDisplay";
 
 function AliasChips({ aliases }: { aliases: string[] }) {
   if (aliases.length === 0) return <span className="text-xs text-gray-400">—</span>;
@@ -47,11 +40,13 @@ function TrainingDetailModal({
   runDetail,
   onClose,
   config,
+  metricsProfile,
 }: {
   item: TrainingHistoryItem;
   runDetail: RunDetail | null;
   onClose: () => void;
   config?: WorkspaceConfig;
+  metricsProfile: MetricsProfile;
 }) {
   const runUrl = config?.experiment_url && item.run_id
     ? `${config.experiment_url}/runs/${item.run_id}`
@@ -121,7 +116,7 @@ function TrainingDetailModal({
           {/* Metrics */}
           <div>
             <h3 className="mb-3 text-sm font-semibold text-gray-700">Metrics</h3>
-            <MetricsPanel metrics={metrics} />
+            <MetricsPanel metrics={metrics} metricsProfile={metricsProfile} />
           </div>
 
           {/* All Parameters */}
@@ -223,6 +218,9 @@ export function RunHistory() {
       </div>
     );
   }
+  const metricsProfile: MetricsProfile =
+    config?.metrics_profile ?? "regression";
+
   if (!data || data.length === 0) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
@@ -261,28 +259,24 @@ export function RunHistory() {
               <th className="px-4 py-3">Version</th>
               <th className="px-4 py-3">Aliases</th>
               <th className="px-4 py-3">Trained At</th>
-              <th className="px-4 py-3">RMSE</th>
-              <th className="px-4 py-3">MAE</th>
-              <th className="px-4 py-3">R²</th>
+              {HISTORY_TABLE_HEADERS[metricsProfile].map((h) => (
+                <th key={h} className="px-4 py-3">
+                  {h}
+                </th>
+              ))}
               <th className="px-4 py-3">Key Params</th>
               <th className="px-4 py-3 w-10"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {data.map((item) => {
-              const rmse = findMetric(item.metrics, "rmse");
-              const mae = findMetric(item.metrics, "mae");
-              const r2 = findMetric(item.metrics, "r2");
-
-              // Build condensed param summary
-              const paramSummary = KEY_PARAMS
+              const metricCols = historyTableValues(item.metrics, metricsProfile);
+              const paramKeys = KEY_PARAMS[metricsProfile];
+              const paramSummary = paramKeys
                 .filter((k) => item.params[k] != null)
                 .map((k) => {
                   const v = item.params[k];
-                  const short = k === "num_leaves" ? "leaves" :
-                    k === "learning_rate" ? "lr" :
-                      k === "n_estimators" ? "trees" :
-                        k === "max_depth" ? "depth" : k;
+                  const short = KEY_PARAM_SHORT[k] ?? k;
                   return `${short}=${v}`;
                 })
                 .join(", ");
@@ -304,15 +298,14 @@ export function RunHistory() {
                       ? formatDate(item.training_start_time)
                       : formatDate(item.creation_timestamp)}
                   </td>
-                  <td className="px-4 py-3 font-mono text-gray-700">
-                    {formatMetric(rmse)}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-gray-700">
-                    {formatMetric(mae)}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-gray-700">
-                    {formatMetric(r2)}
-                  </td>
+                  {metricCols.map((val, i) => (
+                    <td
+                      key={i}
+                      className="px-4 py-3 font-mono text-gray-700"
+                    >
+                      {formatMetric(val)}
+                    </td>
+                  ))}
                   <td className="px-4 py-3 text-xs text-gray-500 font-mono max-w-[200px] truncate">
                     {paramSummary || "—"}
                   </td>
@@ -349,6 +342,7 @@ export function RunHistory() {
             setRunDetail(null);
           }}
           config={config ?? undefined}
+          metricsProfile={metricsProfile}
         />
       )}
 

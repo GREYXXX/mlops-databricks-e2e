@@ -11,5 +11,5 @@ resources:
             permission: CAN_USE
         - name: pipeline-job
           job:
-            id: ${resources.jobs.mlops_e2e_pipeline.id}
+            id: ${resources.jobs.mlops_e2e_newsgroups_pipeline.id}
             permission: CAN_MANAGE_RUN

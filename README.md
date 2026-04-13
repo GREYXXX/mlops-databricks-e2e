@@ -1,214 +1,314 @@
-# MLOps E2E Example
+# MLOps End-to-End Example (Databricks)
 
-End-to-end MLOps pipeline on Databricks demonstrating the full model lifecycle: data preparation, feature engineering, model training with hyperparameter tuning, evaluation, Unity Catalog registration, and champion/challenger model promotion.
+This repository demonstrates a full model lifecycle on **Databricks**: data preparation, feature engineering, training, evaluation, **Unity Catalog** registration, and **champion / challenger** promotion. Logic is packaged as a Python library under `src/mlops_e2e/`; notebooks are thin wrappers. Deployment is driven by a **Databricks Asset Bundle (DAB)**. A **Databricks App** (FastAPI + React) provides operational visibility.
 
-Built as a **Databricks Asset Bundle (DAB)** for portable deployment across workspaces, with a **Databricks App** dashboard for operational visibility.
+The project contains **two independent six-stage jobs**:
 
-## Pipeline Stages
+| Pipeline | Domain | Model |
+|----------|--------|--------|
+| **Housing** | California Housing regression | LightGBM + Optuna |
+| **Newsgroups** | 20 Newsgroups text classification | LR + RF + TextCNN ensemble (MLflow pyfunc) |
 
-| Stage | Description | Key Technology |
-|-------|-------------|----------------|
-| 1. Data Preparation | Load California Housing dataset, save as Delta table | sklearn, Delta Lake |
-| 2. Feature Engineering | Log transforms, derived ratios, scaling | PySpark, Delta Lake |
-| 3. Model Training | LightGBM + Optuna (50 trials) with MLflow tracking | LightGBM, Optuna, MLflow |
-| 4. Model Evaluation | RMSE, MAE, R2, MAPE metrics + artifact plots | MLflow, matplotlib |
-| 5. Model Registration | Register best model to Unity Catalog | MLflow, Unity Catalog |
-| 6. Champion Management | Compare Challenger vs Champion, promote if better | MLflow Model Registry |
+---
 
-## Dashboard App
+## Table of contents
 
-React + TypeScript frontend with FastAPI backend, deployed as a **Databricks App**.
+1. [Databricks Asset Bundle layout](#databricks-asset-bundle-layout)
+2. [Pipeline stages](#pipeline-stages)
+3. [Dashboard application](#dashboard-application)
+4. [Prerequisites](#prerequisites)
+5. [Workspace authentication](#workspace-authentication)
+6. [Deploy and run](#deploy-and-run)
+7. [Databricks App service principal permissions](#databricks-app-service-principal-permissions)
+8. [Local development](#local-development)
+9. [Bundle variables](#bundle-variables)
+10. [Repository layout](#repository-layout)
+11. [Testing](#testing)
+12. [Troubleshooting](#troubleshooting)
 
-### Pipeline View
+---
 
-Real-time 6-stage pipeline visualization with status tracking, execution times, and direct links to workspace notebooks. Click any stage to view its source code and imported functions inline.
+## Databricks Asset Bundle layout
 
-![Pipeline View](screenshots/dashboard-pipeline-code.png)
+The root file **`databricks.yml`** defines the bundle name, **variables**, **artifacts**, **targets**, and pulls in everything under `resources/*.yml`. All `${var.*}` placeholders are resolved against the variable definitions and the active **target** (e.g. `dev`, `staging`, `prod`).
 
-### Model Comparison
+```
+databricks.yml
+│
+├── variables
+│       catalog, schema, model_name, ensemble_model_name, warehouse_id
+│       (referenced as ${var.*} in included resource files)
+│
+├── artifacts
+│       mlops_e2e_wheel — build: python setup.py bdist_wheel
+│       The wheel is built during deploy and uploaded to the workspace for job environments.
+│
+├── include: resources/*.yml
+│
+├── pipeline_job.yml
+│       Resource: jobs.mlops_e2e_pipeline
+│       Name pattern: "[${bundle.target}] MLOps E2E Pipeline"
+│       Schedule: 08:00 (America/Los_Angeles)
+│       Six tasks → environment ml_env (LightGBM, Optuna, project wheel)
+│       Notebook base_parameters: catalog, schema; registration/champion use model_name
+│
+├── ensemble_pipeline_job.yml
+│       Resource: jobs.mlops_e2e_newsgroups_pipeline
+│       Name pattern: "[${bundle.target}] MLOps E2E Newsgroups Ensemble Pipeline"
+│       Schedule: 09:00 (America/Los_Angeles)
+│       Six tasks → environment ensemble_env (scikit-learn, gensim, PyTorch, project wheel)
+│       Notebook base_parameters: catalog, schema; registration/champion use ensemble_model_name
+│
+├── experiment.yml
+│       Resource: experiments.mlops_e2e_experiment
+│       MLflow path: /Users/${workspace.current_user.userName}/mlops_e2e_california_housing
+│       Permissions: users group — CAN_MANAGE
+│
+└── app.yml
+        Resource: apps.mlops_e2e_dashboard
+        App name: mlops-e2e-dashboard
+        source_code_path: ../app (FastAPI backend + React frontend; build frontend before deploy)
+        Entitlements (applied automatically for the app’s service principal):
+          - SQL warehouse — CAN_USE (${var.warehouse_id})
+          - Job — CAN_MANAGE_RUN (${resources.jobs.mlops_e2e_newsgroups_pipeline.id})
+```
 
-Side-by-side Champion vs Challenger metrics (RMSE, MAE, R², MAPE, Median AE) with delta indicators and promotion decision logic. Links directly to the Unity Catalog registered model.
+The **housing** MLflow experiment is declared in `experiment.yml`. The **Newsgroups** pipeline uses an experiment path constructed in the notebooks (see `src/mlops_e2e/newsgroups/config.py` and `notebooks/newsgroups/`).
 
-![Model Comparison](screenshots/dashboard-models.png)
+The App is currently wired to the **Newsgroups** job for run permissions. To point the dashboard at the housing job instead, change the job reference in `resources/app.yml` and set the App’s environment variables (e.g. `PIPELINE_JOB_NAME`, `UC_MODEL_NAME`) accordingly. See `app/app.yaml` for a template.
 
-### Training History
+---
 
-Model version table showing the relationship between registered models and their training experiment runs. Each row displays version, aliases, training date, metrics (RMSE, MAE, R²), and key hyperparameters. Click any row for full details with artifacts, or use the link icon to open the run directly in MLflow.
+## Pipeline stages
 
-![Training History](screenshots/dashboard-training-history.png)
+Each job follows the same stage pattern; task keys and notebooks differ by pipeline.
 
-## Quick Start
+### Housing (regression)
 
-### Prerequisites
+| Stage | Description | Key technologies |
+|-------|-------------|-------------------|
+| 1. Data preparation | Load California Housing; persist Delta table | scikit-learn, Delta Lake |
+| 2. Feature engineering | Log transforms, ratios, scaling | PySpark, Delta Lake |
+| 3. Model training | LightGBM + Optuna with MLflow tracking | LightGBM, Optuna, MLflow |
+| 4. Model evaluation | RMSE, MAE, R², MAPE; plots | MLflow, matplotlib |
+| 5. Model registration | Register best run to Unity Catalog | MLflow, Unity Catalog |
+| 6. Champion management | Compare Challenger vs Champion (RMSE); promote or archive | MLflow, UC aliases |
 
-- Databricks CLI configured with a workspace
+### Newsgroups (classification)
+
+| Stage | Description | Key technologies |
+|-------|-------------|-------------------|
+| 1. Data preparation | Fetch 20 Newsgroups; Delta table with `split` | scikit-learn, Delta Lake |
+| 2. Feature engineering | FastText embeddings, vocabulary | Gensim, MLflow artifacts |
+| 3. Ensemble training | LR + RF + TextCNN; single pyfunc model | scikit-learn, PyTorch, MLflow |
+| 4. Model evaluation | Per-model and ensemble classification metrics | MLflow |
+| 5. Model registration | Register ensemble to Unity Catalog | MLflow, Unity Catalog |
+| 6. Champion management | Weighted F1 comparison; promote or archive | MLflow, UC aliases |
+
+---
+
+## Dashboard application
+
+The **Databricks App** serves a React (TypeScript) UI and a FastAPI API.
+
+- **Pipeline view** — Six-stage status, timings, and links to workspace notebooks; optional inline source for each stage.
+- **Model comparison** — Champion vs Challenger metrics and promotion context. The UI selects **regression** (RMSE, MAE, R², …) or **classification** (weighted F1, accuracy, precision, recall) based on `/api/config` (`metrics_profile`), derived from `UC_MODEL_NAME` or `DASHBOARD_METRICS_PROFILE`.
+- **Training history** — Registered model versions linked to MLflow runs, with key metrics and parameters.
+
+For local development, run the API from the repository root and the Vite dev server from `app/frontend` (see [Local development](#local-development)).
+
+---
+
+## Prerequisites
+
+- Databricks CLI with access to a workspace
 - Python 3.10+
-- Node.js 18+ (for frontend)
+- Node.js 18+ (frontend build and local dev)
 
-### Workspace Login
+---
 
-Each user must create a **named profile** linked to a specific workspace. This profile name is required for all subsequent CLI commands.
+## Workspace authentication
+
+Create a **named profile** for each workspace. Use that profile on every `databricks bundle` and `databricks apps` command.
 
 ```bash
-# 1. Create a profile linked to your target workspace
-#    This opens a browser for OAuth login and saves credentials under the profile name.
+# 1. OAuth login; stores credentials under the profile name
 databricks auth login --host https://<workspace-url> --profile <PROFILE>
 
-# 2. Verify the profile is configured correctly
+# 2. Confirm host
 databricks auth env --profile <PROFILE>
-#   → Should show DATABRICKS_HOST pointing to your workspace URL
 
-# 3. Verify you can connect to the workspace
+# 3. Confirm connectivity
 databricks current-user me --profile <PROFILE>
 ```
 
-The profile is stored in `~/.databrickscfg`. You can inspect or edit it directly:
+Profile file (typical location: `~/.databrickscfg`):
 
 ```ini
-# ~/.databrickscfg
 [mlops-e2e]
-host  = https://my-workspace.cloud.databricks.com
+host = https://my-workspace.cloud.databricks.com
 auth_type = databricks-cli
 ```
 
-> Replace `<PROFILE>` with a name of your choice (e.g., `mlops-e2e`). If you work with multiple workspaces, create a separate profile for each one. For service principal or token-based auth, see `databricks configure --help`.
+For service principals or token-based auth, see `databricks configure --help`.
 
-### Deploy
+---
 
-All bundle commands require `--profile <PROFILE>` to target the correct workspace.
+## Deploy and run
 
 ```bash
-# Validate bundle
+# Validate
 databricks bundle validate -t dev --profile <PROFILE>
 
-# Deploy resources and code
+# Deploy (builds wheel, syncs bundle including app/frontend/dist if present)
 databricks bundle deploy -t dev --profile <PROFILE>
 
-# Run the pipeline
+# Run housing pipeline
 databricks bundle run -t dev --profile <PROFILE> mlops_e2e_pipeline
+
+# Run Newsgroups ensemble pipeline
+databricks bundle run -t dev --profile <PROFILE> mlops_e2e_newsgroups_pipeline
 ```
 
-### App Service Principal Permissions
+Build the frontend before deploy so static assets are included:
 
-Databricks Apps run under an auto-generated **Service Principal** (SP). After the first deploy, you must grant this SP access to the resources the dashboard reads. Without these permissions, the app will return empty data or errors.
+```bash
+cd app/frontend && npm install && npm run build
+```
 
-1. **Find the App Service Principal**: Go to the app detail page in the workspace UI, or:
+---
+
+## Databricks App service principal permissions
+
+Apps run as a workspace **service principal**. After first deploy, grant that principal access to Unity Catalog, the MLflow experiment, and registered models the API reads.
+
+1. **Identify the App principal**
+
    ```bash
    databricks apps get mlops-e2e-dashboard --profile <PROFILE>
    ```
-   The SP name is shown under `service_principal_name` (e.g., `app-mlops-e2e-dashboard-...`).
 
-2. **Grant Unity Catalog permissions** (run in a SQL warehouse or notebook):
+   Use `service_principal_name` from the response (e.g. `app-mlops-e2e-dashboard-...`).
+
+2. **Unity Catalog** (SQL warehouse or notebook)
+
    ```sql
-   -- Schema-level read access (covers all tables)
    GRANT USE CATALOG ON CATALOG <catalog> TO `<service_principal_name>`;
    GRANT USE SCHEMA ON SCHEMA <catalog>.<schema> TO `<service_principal_name>`;
    GRANT SELECT ON SCHEMA <catalog>.<schema> TO `<service_principal_name>`;
 
-   -- Model read + manage (for re-promote / rollback / delete)
+   -- Repeat per registered model the dashboard manages (housing and/or newsgroups)
    GRANT MANAGE ON FUNCTION <catalog>.<schema>.california_housing_model TO `<service_principal_name>`;
+   GRANT MANAGE ON FUNCTION <catalog>.<schema>.newsgroups_ensemble_model TO `<service_principal_name>`;
    ```
 
-3. **Grant MLflow Experiment access**: The experiment is created under the deploying user's directory. Grant CAN_READ via the workspace UI or CLI:
-   ```bash
-   databricks experiments set-permissions <EXPERIMENT_ID> \
-     --access-control-list '[{"service_principal_name":"<service_principal_name>","permission_level":"CAN_READ"}]' \
-     --profile <PROFILE>
-   ```
+3. **MLflow experiment** — Grant **CAN_READ** (or equivalent) on the experiment the backend resolves via `MLFLOW_EXPERIMENT_NAME` / discovery in `mlflow_service`.
 
-4. **Grant Model Registry access** (UC model alias management for re-promote):
-   ```sql
-   GRANT APPLY TAG ON SCHEMA <catalog>.<schema> TO `<service_principal_name>`;
-   ```
+4. **Model registry / UC** — If your workspace requires extra privileges for alias updates, apply per your admin guidance (e.g. tag permissions on the schema).
 
-| Resource | Permission | Reason |
-|----------|-----------|--------|
-| `<catalog>` | `USE CATALOG` | Access the catalog |
-| `<catalog>.<schema>` | `USE SCHEMA`, `SELECT` | Read pipeline tables (`california_housing_raw`, `california_housing_features`) |
-| `<catalog>.<schema>.<model_name>` | `MANAGE` | Read/write model versions, aliases, promote/delete |
-| MLflow Experiment | `CAN_READ` | Read experiment runs and metrics |
-| Job (pipeline) | `CAN_MANAGE_RUN` | Trigger pipeline (already configured in `app.yml`) |
-| SQL Warehouse | `CAN_USE` | Execute queries (already configured in `app.yml`) |
+| Resource | Permission | Purpose |
+|----------|------------|---------|
+| Catalog / schema | `USE CATALOG`, `USE SCHEMA`, `SELECT` | Read pipeline Delta tables |
+| Registered models | `MANAGE` | Read versions, set aliases, promote/delete |
+| MLflow experiment | `CAN_READ` | Read runs and metrics |
+| Job | `CAN_MANAGE_RUN` | Trigger pipeline (declared in `app.yml` for the bound job) |
+| SQL warehouse | `CAN_USE` | Queries from the app (declared in `app.yml`) |
 
-> Replace `<catalog>`, `<schema>`, `<service_principal_name>` with your actual values (e.g., `main`, `mlops_e2e`, `app-mlops-e2e-dashboard-1234`).
+Replace placeholders with your catalog, schema, and principal name.
 
-### Local Development
+---
+
+## Local development
 
 ```bash
-# Install Python package
 pip install -e ".[dev]"
-
-# Run tests
 pytest tests/ -v
 
-# Build frontend
+# Production-style frontend bundle
 cd app/frontend && npm install && npm run build
 ```
 
-### DAB Variables
+**API** (repository root):
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `catalog` | `main` | Unity Catalog catalog name |
-| `schema` | `mlops_e2e` | Unity Catalog schema name |
-| `model_name` | `california_housing_model` | Registered model name |
-| `warehouse_id` | — | SQL warehouse ID for app |
+```bash
+uvicorn app.backend.main:app --reload
+```
 
-Override per target in `databricks.yml` or via CLI: `databricks bundle deploy -t dev --profile <PROFILE> --var="catalog=my_catalog"`
+**Frontend** (separate terminal; proxies API to `127.0.0.1:8000`):
 
-## Project Structure
+```bash
+cd app/frontend && npm install && npm run dev
+```
+
+Configure a `.env` file at the repository root for `UC_MODEL_NAME`, `PIPELINE_JOB_NAME`, `MLFLOW_EXPERIMENT_NAME`, `NOTEBOOK_ROOT_PATH`, and optional `DATABRICKS_CONFIG_PROFILE`. Restart the API after changes; `mlflow_service` reads several values at import time.
+
+---
+
+## Bundle variables
+
+| Variable | Default (definition) | Description |
+|----------|----------------------|-------------|
+| `catalog` | `main` | Unity Catalog catalog |
+| `schema` | `mlops_e2e` | Unity Catalog schema |
+| `model_name` | `california_housing_model` | Housing registered model (short name) |
+| `ensemble_model_name` | `newsgroups_ensemble_model` | Newsgroups registered model (short name) |
+| `warehouse_id` | — | SQL warehouse ID for the App |
+
+Targets in `databricks.yml` override variables (e.g. `dev` may set `catalog: workspace` and a concrete `warehouse_id`). Override at deploy time:
+
+```bash
+databricks bundle deploy -t dev --profile <PROFILE> --var="catalog=my_catalog"
+```
+
+---
+
+## Repository layout
 
 ```
-mlops_e2e_example/
-├── databricks.yml              # DAB root config (targets, variables, artifacts)
-├── src/mlops_e2e/              # Python package (testable pipeline logic)
-├── notebooks/                  # housing/ + newsgroups/ pipeline notebooks
-├── resources/                  # DAB resource definitions (job, app, experiment)
-├── app/                        # Databricks App (FastAPI + React)
-│   ├── backend/                # FastAPI API + services
-│   └── frontend/               # React + TypeScript + Tailwind
-└── tests/                      # pytest unit tests (58 tests)
+mlops-databricks-e2e/
+├── databricks.yml          # Bundle root: variables, artifacts, targets, includes
+├── resources/              # Jobs, app, experiment
+├── src/mlops_e2e/          # Shared Python package (housing/, newsgroups/, config)
+├── notebooks/              # housing/ and newsgroups/ pipeline notebooks
+├── app/
+│   ├── backend/            # FastAPI
+│   ├── frontend/           # React + TypeScript + Vite
+│   └── app.yaml            # Example env for Databricks App deployment
+├── tests/                  # pytest
+└── CLAUDE.md               # Contributor / agent notes
 ```
+
+---
 
 ## Testing
 
-All pipeline logic lives in `src/mlops_e2e/` as pure Python, enabling local testing without Databricks:
+Pipeline logic is tested locally with pytest; Spark-backed tests use a local session, and Databricks / MLflow clients are mocked where needed.
 
 ```bash
-pytest tests/ -v --tb=short    # 58 tests, ~23s
+pytest tests/ -v --tb=short
 ```
 
-Tests use real local Spark for DataFrame operations and mock MLflow/Databricks SDK calls.
+---
 
 ## Troubleshooting
 
-### MLflow Experiment name conflict
+### MLflow experiment name conflict
 
-If `databricks bundle deploy` fails with an experiment name conflict, this is because an MLflow experiment with the same name already exists in the workspace.
+If deploy fails because an experiment already exists, this project namespaces the **housing** experiment under `/Users/{username}/mlops_e2e_california_housing` via `resources/experiment.yml` and `notebooks/housing/03_model_training.py`.
 
-This project avoids the issue by namespacing the experiment under each user's directory (`/Users/{username}/mlops_e2e_california_housing`). The DAB resource in `resources/experiment.yml` and the training notebook (`notebooks/housing/03_model_training.py`) both construct the path using the current user, so each user gets their own experiment automatically.
-
-If you still encounter a conflict (e.g., from a previous deployment), bind the existing experiment to the bundle:
+To bind an existing experiment to the bundle:
 
 ```bash
-# Find the existing experiment ID
 databricks experiments list --profile <PROFILE> | grep mlops_e2e_california_housing
-
-# Bind the experiment to the bundle resource
 databricks bundle deployment bind mlops_e2e_experiment <EXPERIMENT_ID> -t dev --profile <PROFILE>
-
-# Deploy again
 databricks bundle deploy -t dev --profile <PROFILE>
 ```
 
 ### Databricks App name conflict
 
-If `databricks bundle deploy` fails with `An app with the same name already exists`, bind the existing app to the bundle:
+If deploy reports that an app with the same name already exists:
 
 ```bash
-# Bind the existing app to the bundle resource
 databricks bundle deployment bind mlops_e2e_dashboard mlops-e2e-dashboard --auto-approve -t dev --profile <PROFILE>
-
-# Deploy again
 databricks bundle deploy -t dev --profile <PROFILE>
 ```

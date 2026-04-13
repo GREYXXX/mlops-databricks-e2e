@@ -1,23 +1,22 @@
 from fastapi import APIRouter
 
+from ..metrics_profile import (
+    comparison_metric_keys,
+    metric_mlflow_keys_for_profile,
+    primary_comparison_metric_key,
+    resolve_metrics_profile,
+)
 from ..services import mlflow_service
 
 router = APIRouter(prefix="/api/models", tags=["comparison"])
 
-# Exact mapping: API response key -> MLflow metric key
-METRIC_KEY_MAP = {
-    "rmse": "test_rmse",
-    "mae": "test_mae",
-    "r2": "test_r2",
-    "mape": "test_mape",
-    "median_ae": "test_median_ae",
-}
-
-COMPARISON_METRICS = list(METRIC_KEY_MAP.keys())
-
 
 @router.get("/comparison")
 def get_comparison():
+    profile = resolve_metrics_profile()
+    key_map = metric_mlflow_keys_for_profile(profile)
+    metric_keys = comparison_metric_keys(profile)
+
     champion = mlflow_service.get_model_by_alias(alias="Champion")
     challenger = mlflow_service.get_model_by_alias(alias="Challenger")
 
@@ -28,22 +27,26 @@ def get_comparison():
         if run_details is None:
             return {}
         all_metrics = run_details.get("metrics", {})
-        result = {}
-        for api_key, mlflow_key in METRIC_KEY_MAP.items():
-            if mlflow_key in all_metrics:
-                result[api_key] = all_metrics[mlflow_key]
+        result: dict[str, float] = {}
+        for api_key, mlflow_keys in key_map.items():
+            for mk in mlflow_keys:
+                if mk in all_metrics:
+                    result[api_key] = all_metrics[mk]
+                    break
         return result
 
     champion_metrics = _extract_metrics(champion)
     challenger_metrics = _extract_metrics(challenger)
 
+    lower_is_better_keys = {"rmse", "mae", "mape", "median_ae"}
+
     deltas = {}
-    for key in COMPARISON_METRICS:
+    for key in metric_keys:
         c_val = champion_metrics.get(key)
         ch_val = challenger_metrics.get(key)
         if c_val is not None and ch_val is not None:
             diff = ch_val - c_val
-            lower_is_better = key in ("rmse", "mae", "mape", "median_ae")
+            lower_is_better = key in lower_is_better_keys
             improved = diff < 0 if lower_is_better else diff > 0
             deltas[key] = {
                 "champion": c_val,
@@ -61,12 +64,11 @@ def get_comparison():
                 f"Version {champion.get('version')} was promoted from "
                 "Challenger to Champion (same model)."
             )
-        else:
-            # Both exist with different versions - check if we have deltas
-            if deltas:
-                # Determine from deltas whether challenger was better
-                rmse_delta = deltas.get("rmse", {})
-                if isinstance(rmse_delta, dict) and rmse_delta.get("improved"):
+        elif deltas:
+            primary = primary_comparison_metric_key(profile)
+            primary_delta = deltas.get(primary)
+            if isinstance(primary_delta, dict):
+                if primary_delta.get("improved"):
                     promotion_status = "challenger_wins"
                     promotion_reason = (
                         f"Challenger (v{challenger.get('version')}) has better "
@@ -80,7 +82,10 @@ def get_comparison():
                     )
             else:
                 promotion_status = "pending"
-                promotion_reason = "Evaluation pending."
+                promotion_reason = "Evaluation pending (primary metric not available on both runs)."
+        else:
+            promotion_status = "pending"
+            promotion_reason = "Evaluation pending."
     elif champion and not challenger:
         promotion_status = "promoted"
         promotion_reason = (

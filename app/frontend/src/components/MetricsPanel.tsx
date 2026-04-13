@@ -8,34 +8,25 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { formatMetric } from "../lib/utils";
+import {
+  type MetricsProfile,
+  PANEL_METRICS,
+  panelFindMetric,
+} from "../lib/metricsDisplay";
 
 interface MetricsPanelProps {
   metrics: Record<string, number>;
+  metricsProfile?: MetricsProfile;
 }
 
-const KEY_METRICS = [
-  { key: "rmse", label: "RMSE", lower: true },
-  { key: "mae", label: "MAE", lower: true },
-  { key: "r2", label: "R\u00B2", lower: false },
-  { key: "mape", label: "MAPE", lower: true },
-];
-
-function findMetric(
-  metrics: Record<string, number>,
-  search: string
-): number | null {
-  // Try exact match, then partial
-  if (metrics[search] != null) return metrics[search];
-  for (const [k, v] of Object.entries(metrics)) {
-    if (k.toLowerCase().includes(search.toLowerCase())) return v;
-  }
-  return null;
-}
-
-export function MetricsPanel({ metrics }: MetricsPanelProps) {
-  const keyValues = KEY_METRICS.map((m) => ({
+export function MetricsPanel({
+  metrics,
+  metricsProfile = "regression",
+}: MetricsPanelProps) {
+  const keyMetrics = PANEL_METRICS[metricsProfile];
+  const keyValues = keyMetrics.map((m) => ({
     ...m,
-    value: findMetric(metrics, m.key),
+    value: panelFindMetric(metrics, m.key),
   }));
 
   const chartData = keyValues
@@ -47,7 +38,6 @@ export function MetricsPanel({ metrics }: MetricsPanelProps) {
 
   return (
     <div>
-      {/* Metric cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {keyValues.map((m) => (
           <div
@@ -64,7 +54,6 @@ export function MetricsPanel({ metrics }: MetricsPanelProps) {
         ))}
       </div>
 
-      {/* Chart */}
       {chartData.length > 0 && (
         <div className="mt-4 h-48">
           <ResponsiveContainer width="100%" height="100%">
@@ -74,7 +63,10 @@ export function MetricsPanel({ metrics }: MetricsPanelProps) {
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <YAxis
+                tick={{ fontSize: 12 }}
+                domain={metricsProfile === "classification" ? [0, 1] : undefined}
+              />
               <Tooltip
                 contentStyle={{
                   borderRadius: "8px",
